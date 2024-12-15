@@ -9,9 +9,9 @@ struct instruction {
     int Rt;
 
 };
-{
+// {
     /* data */
-};
+// };
  
 
 int Leds = 0;
