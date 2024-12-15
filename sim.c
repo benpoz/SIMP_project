@@ -7,6 +7,7 @@ struct instruction {
     int Rd;
     int Rs;
     int Rt;
+    int Rm;
 
 };
 // {
