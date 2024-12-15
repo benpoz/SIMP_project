@@ -2,7 +2,7 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
-int hexToInt(char number[], int bits) {
+int hexToInt(char number[], int bits) { // bits need to be knowm beforehand
     int res = 0;
     for(int i = 0; i < bits/4; i++) {
         int shamt = bits - 4*(i + 1);
