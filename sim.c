@@ -1,17 +1,39 @@
+// import 
+
+// convert text insctruction to number 
+// bits need to be knowm beforehand
+int hexToInt(char number[], int bits) { 
+    number += 2;
+    int res = 0;
+    for(int i = 0; i < bits/4; i++) {
+        int shamt = bits - 4*(i + 1);
+        if (number[i] >= 'a' & number[i] <= 'f') {
+            res += (number[i] - 87) << shamt;
+        } else if (number[i] >= 'A' & number[i] <= 'F') {
+            res += (number[i] - 55) << shamt;
+        } else if (number[i] >= '0' & number[i] <= '9'){
+            res += (number[i] - 48) << shamt;
+        } else return -1;
+    };
+return res;
+};
+
+int isHex(char number[]) {
+    return number[0] == '0' && (number[1] == 'x' | number[1] == 'X');
+};
 
 // import instructions (I/O missing!)
 int instructions[4096];
 // import data memory (I/O missing!)
 int data_memory[4096];
 
-
 // create program counter
 int PC = 0;
 // create registers
-int registers[16];
+int registers[16]; // set all to zero?
+registers[0] = 0;
 // create IOregisters
 int IOregisters[22];
-
 
 int monitor[256][256];
 // define instruction structure
@@ -36,9 +58,13 @@ void decodeInstruction (ins) {
     curr.imm1 = ins >> 12 && 0xfff;
     curr.imm2 = ins && 0xfff;
 }
+void setImmediates (struct instruction ins) {
+    registers[1] = ins.imm1;
+    registers[2] = ins.imm2;         
+};
 
 // define operation by opcode
-void execute (struct instruction ins) {
+int execute (struct instruction ins) {
     switch (ins.op_code) // missing updating trace files
         {
         case 0: //add
@@ -63,13 +89,9 @@ void execute (struct instruction ins) {
             registers[ins.Rd] = registers[ins.Rs] << registers[ins.Rt];
             break;
         case 7: //sra
-            if (registers[ins.Rs] && 0x80000000) {
-                registers[ins.Rd] = (registers[ins.Rs] >> registers[ins.Rt]) ^ (0x80000000 >> registers[ins.Rt]);
-            } else {
-                registers[ins.Rd] = registers[ins.Rs] >> registers[ins.Rt];
-            } break;
+             registers[ins.Rd] = registers[ins.Rs] >> registers[ins.Rt];
         case 8: //srl
-            registers[ins.Rd] = registers[ins.Rs] >> registers[ins.Rt];
+            registers[ins.Rd] =(int)((unsigned int)registers[ins.Rs] >> registers[ins.Rt]);
             break;
         case 9: //beq
             if (registers[ins.Rs] == registers[ins.Rd]) {PC = (registers[ins.Rm] && 0xfff);};
@@ -109,7 +131,7 @@ void execute (struct instruction ins) {
             IOregisters[ins.Rs + ins.Rt] = registers[ins.Rm];
             break;
         case 21: //halt
-            return "halt";
+            return "halt"; // return something else
             break;
         default:
             return -1;
