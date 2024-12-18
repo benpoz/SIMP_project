@@ -1,21 +1,24 @@
 # include <stdio.h>
 # include <string.h>
 
+// define file sizes
+#define MEMORY_SIZE 4096        // Maximum number of lines in the memory
+#define LINE_LENGTH 14          // Each line can hold 12 characters + 2 for newline
+#define DISK_SIZE 128           // Number of sectors in the disk
+#define SECTOR_SIZE 514         // Each line can hold 512 bytes + 2 for newline
+#define MAX_CYCLES 1024*4096    // Maximum possible cycles in a program
 
-// import 
-
-// convert text instruction line to number 
-// bits need to be knowm beforehand
+// define functions
 int hexToInt(char number[], int bits) { 
     number += 2;
     int res = 0;
     for(int i = 0; i < bits/4; i++) {
         int shamt = bits - 4*(i + 1);
-        if (number[i] >= 'a' & number[i] <= 'f') {
+        if (number[i] >= 'a' && number[i] <= 'f') {
             res += (number[i] - 87) << shamt;
-        } else if (number[i] >= 'A' & number[i] <= 'F') {
+        } else if (number[i] >= 'A' && number[i] <= 'F') {
             res += (number[i] - 55) << shamt;
-        } else if (number[i] >= '0' & number[i] <= '9'){
+        } else if (number[i] >= '0' && number[i] <= '9'){
             res += (number[i] - 48) << shamt;
         } else return -1;
     };
@@ -23,10 +26,42 @@ return res;
 };
 
 int isHex(char number[]) {
-    return number[0] == '0' && (number[1] == 'x' | number[1] == 'X');
+    return number[0] == '0' && (number[1] == 'x' || number[1] == 'X');
 };
 
-// create program counter
+int write_file_contents_into_array(char* input_file_name, char array[MEMORY_SIZE][LINE_LENGTH]) {
+    FILE *file = fopen(input_file_name, "r");
+    int line_count = 0;
+    char buffer[LINE_LENGTH + 1];
+    while (fgets(buffer, LINE_LENGTH + 1, file) != NULL) { // read line to buffer until at the EOF
+        strcpy(array[line_count], buffer); // copy line to array
+        line_count++;
+    }    
+    fclose(file);
+    return line_count;
+}
+
+void decodeInstruction (ins) {
+    struct instruction curr;
+    curr.op_code = ins >> 40 & 0xff;
+    curr.Rd = ins >> 36 & 0xf;
+    curr.Rs = ins >> 32 & 0xf;
+    curr.Rt = ins >> 28 & 0xf;
+    curr.Rm = ins >> 24 & 0xf;
+    curr.imm1 = ins >> 12 & 0xfff;
+    curr.imm2 = ins & 0xfff;
+};
+
+void setImmediates (struct instruction ins) {
+    registers[0] = 0; // just making sure
+    registers[1] = ins.imm1;
+    registers[2] = ins.imm2;         
+};
+
+// define operation by opcode
+
+// create program counter & clock
+int CLK = 0;
 int PC = 0;
 
 // create registers
@@ -34,8 +69,8 @@ int registers[16] = {0}; // set all to zero?
 
 // create IOregisters
 int IOregisters[22];
+unsigned char monitor[256][256];
 
-int monitor[256][256];
 // define instruction structure
 struct instruction {
     int op_code;
@@ -47,38 +82,25 @@ struct instruction {
     int imm2;
 };
 
-// decode instruction by shifting right then turn off all non relevant bits 
-void decodeInstruction (ins) {
-    struct instruction curr;
-    curr.op_code = ins >> 40 && 0xff;
-    curr.Rd = ins >> 36 && 0xf;
-    curr.Rs = ins >> 32 && 0xf;
-    curr.Rt = ins >> 28 && 0xf;
-    curr.Rm = ins >> 24 && 0xf;
-    curr.imm1 = ins >> 12 && 0xfff;
-    curr.imm2 = ins && 0xfff;
-};
-void setImmediates (struct instruction ins) {
-    registers[0] = 0; // just making sure
-    registers[1] = ins.imm1;
-    registers[2] = ins.imm2;         
-};
-
-// define operation by opcode
-int execute (struct instruction ins);
-
 int main(int argc, char *argv[]) { 
     if (argc != 14) { //check that the correct number of files was written in the command line
         printf("Wrong number of I/O files! need exactly 13 file names");
         return -1;
     };
-    // input files
-    FILE *instruction_memory = fopen(argv[1], "r");
-    FILE *data_memory = fopen(argv[2], "w+");
-    FILE *disk_in = fopen(argv[3], "w+");
-    FILE *irq2_in = fopen(argv[4], "r");
+    // input files:
+    char instruction_memory[MEMORY_SIZE][LINE_LENGTH];  // This holds instruction memory by line
+    int instruction_count = write_file_contents_into_array(argv[1], instruction_memory);
+    
+    char data_memory[MEMORY_SIZE][LINE_LENGTH]; // This holds data memory by line
+    int data_count = write_file_contents_into_array(argv[2], data_memory);   
 
-    // output files
+    char disk_in[DISK_SIZE][SECTOR_SIZE]; // This holds disk contents by sector
+    int disk_contents = write_file_contents_into_array(argv[3], disk_in);   
+
+    int irq2_in[MAX_CYCLES][32]; // These are interupt times by cycle
+    int disk_contents = write_file_contents_into_array(argv[4], irq2_in); 
+
+    // output files:
     FILE *data_memory_out = fopen(argv[5], "w+"); // how to make?
     FILE *registers_out = fopen(argv[6], "w+"); // remember to not output regs 0,1,2
     FILE *trace = fopen(argv[7], "w+");
@@ -87,11 +109,8 @@ int main(int argc, char *argv[]) {
     FILE *leds = fopen(argv[10], "w+");
     FILE *display7seg = fopen(argv[11], "w+");
     FILE *disk_out = fopen(argv[12], "w+"); // how to make?
-    FILE *monitor = fopen(argv[13], "w+");
-
-    while (!feof(instruction_memory)) {
-        // read line by line and append to the existing array
-    };
+    FILE *monitor_txt = fopen(argv[13], "w+");
+    FILE *monitor_yuv = fopen(argv[14], "w+");
 
     int execute(struct instruction ins) {
         switch (ins.op_code) {
@@ -105,10 +124,10 @@ int main(int argc, char *argv[]) {
                 registers[ins.Rd] = registers[ins.Rs] * registers[ins.Rt] + registers[ins.Rm];
                 break;
             case 3: // and
-                registers[ins.Rd] = registers[ins.Rs] & registers[ins.Rt] & registers[ins.Rm];
+                registers[ins.Rd] = registers[ins.Rs] && registers[ins.Rt] && registers[ins.Rm];
                 break;
             case 4: // or
-                registers[ins.Rd] = registers[ins.Rs] | registers[ins.Rt] | registers[ins.Rm];
+                registers[ins.Rd] = registers[ins.Rs] || registers[ins.Rt] || registers[ins.Rm];
                 break;
             case 5: // xor
                 registers[ins.Rd] = registers[ins.Rs] ^ registers[ins.Rt] ^ registers[ins.Rm];
@@ -123,14 +142,10 @@ int main(int argc, char *argv[]) {
                 registers[ins.Rd] = (int)((unsigned int)registers[ins.Rs] >> registers[ins.Rt]);
                 break;
             case 9: // beq
-                if (registers[ins.Rs] == registers[ins.Rd]) {
-                    PC = registers[ins.Rm] & 0xfff;
-                }
+                if (registers[ins.Rs] == registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
                 break;
             case 10: // bne
-                if (registers[ins.Rs] != registers[ins.Rd]) {
-                    PC = registers[ins.Rm] & 0xfff;
-                }
+                if (registers[ins.Rs] != registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
                 break;
             case 11: // blt
                 if (registers[ins.Rs] < registers[ins.Rd]) {
