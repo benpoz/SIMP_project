@@ -58,6 +58,81 @@ void setImmediates (struct instruction ins) {
     registers[2] = ins.imm2;         
 };
 
+int execute(struct instruction ins, int registers[], int data_memory[]) {
+    switch (ins.op_code) {
+        case 0: // add
+            registers[ins.Rd] = registers[ins.Rs] + registers[ins.Rt] + registers[ins.Rm];
+            break;
+        case 1: // sub
+            registers[ins.Rd] = registers[ins.Rs] - registers[ins.Rt] - registers[ins.Rm];
+            break;
+        case 2: // mac
+            registers[ins.Rd] = registers[ins.Rs] * registers[ins.Rt] + registers[ins.Rm];
+            break;
+        case 3: // and
+            registers[ins.Rd] = registers[ins.Rs] && registers[ins.Rt] && registers[ins.Rm];
+            break;
+        case 4: // or
+            registers[ins.Rd] = registers[ins.Rs] || registers[ins.Rt] || registers[ins.Rm];
+            break;
+        case 5: // xor
+            registers[ins.Rd] = registers[ins.Rs] ^ registers[ins.Rt] ^ registers[ins.Rm];
+            break;
+        case 6: // sll
+            registers[ins.Rd] = registers[ins.Rs] << registers[ins.Rt];
+            break;
+        case 7: // sra
+            registers[ins.Rd] = registers[ins.Rs] >> registers[ins.Rt];
+            break;
+        case 8: // srl
+            registers[ins.Rd] = (int)((unsigned int)registers[ins.Rs] >> registers[ins.Rt]);
+            break;
+        case 9: // beq
+            if (registers[ins.Rs] == registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            break;
+        case 10: // bne
+            if (registers[ins.Rs] != registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            break;
+        case 11: // blt
+            if (registers[ins.Rs] < registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            break;
+        case 12: // bgt
+            if (registers[ins.Rs] > registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            break;
+        case 13: // ble
+            if (registers[ins.Rs] <= registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            break;
+        case 14: // bge
+            if (registers[ins.Rs] >= registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            break;
+        case 15: // jal
+            PC = registers[ins.Rm & 0xfff];
+            registers[ins.Rd] = PC + 1;
+            break;
+        case 16: // lw
+            registers[ins.Rd] = data_memory[registers[ins.Rs] + registers[ins.Rt]] + registers[ins.Rm];
+            break;
+        case 17: // sw
+            data_memory[registers[ins.Rs] + registers[ins.Rt]] = registers[ins.Rd] + registers[ins.Rm];
+            break;
+        case 18: // reti
+            PC = IOregisters[7];
+            break;
+        case 19: // in
+            registers[ins.Rd] = IOregisters[registers[ins.Rs] + registers[ins.Rt]];
+            break;
+        case 20: // out
+            IOregisters[registers[ins.Rs] + registers[ins.Rt]] = registers[ins.Rm];
+            break;
+        case 21: // halt
+            return 1; // halt the program by returning 0
+            break;
+        default:
+            return -1; // invalid instruction
+            break;
+    }
+    return 0;
+}
 // define operation by opcode
 
 // create program counter & clock
@@ -69,7 +144,7 @@ int registers[16] = {0}; // set all to zero?
 
 // create IOregisters
 int IOregisters[22];
-unsigned char monitor[256][256];
+unsigned char monitor[256][256]; // unsigned char <- every pixel value is a byte
 
 // define instruction structure
 struct instruction {
@@ -111,89 +186,6 @@ int main(int argc, char *argv[]) {
     FILE *disk_out = fopen(argv[12], "w+"); // how to make?
     FILE *monitor_txt = fopen(argv[13], "w+");
     FILE *monitor_yuv = fopen(argv[14], "w+");
-
-    int execute(struct instruction ins) {
-        switch (ins.op_code) {
-            case 0: // add
-                registers[ins.Rd] = registers[ins.Rs] + registers[ins.Rt] + registers[ins.Rm];
-                break;
-            case 1: // sub
-                registers[ins.Rd] = registers[ins.Rs] - registers[ins.Rt] - registers[ins.Rm];
-                break;
-            case 2: // mac
-                registers[ins.Rd] = registers[ins.Rs] * registers[ins.Rt] + registers[ins.Rm];
-                break;
-            case 3: // and
-                registers[ins.Rd] = registers[ins.Rs] && registers[ins.Rt] && registers[ins.Rm];
-                break;
-            case 4: // or
-                registers[ins.Rd] = registers[ins.Rs] || registers[ins.Rt] || registers[ins.Rm];
-                break;
-            case 5: // xor
-                registers[ins.Rd] = registers[ins.Rs] ^ registers[ins.Rt] ^ registers[ins.Rm];
-                break;
-            case 6: // sll
-                registers[ins.Rd] = registers[ins.Rs] << registers[ins.Rt];
-                break;
-            case 7: // sra
-                registers[ins.Rd] = registers[ins.Rs] >> registers[ins.Rt];
-                break;
-            case 8: // srl
-                registers[ins.Rd] = (int)((unsigned int)registers[ins.Rs] >> registers[ins.Rt]);
-                break;
-            case 9: // beq
-                if (registers[ins.Rs] == registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
-                break;
-            case 10: // bne
-                if (registers[ins.Rs] != registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
-                break;
-            case 11: // blt
-                if (registers[ins.Rs] < registers[ins.Rd]) {
-                    PC = registers[ins.Rm] & 0xfff;
-                }
-                break;
-            case 12: // bgt
-                if (registers[ins.Rs] > registers[ins.Rd]) {
-                    PC = registers[ins.Rm] & 0xfff;
-                }
-                break;
-            case 13: // ble
-                if (registers[ins.Rs] <= registers[ins.Rd]) {
-                    PC = registers[ins.Rm] & 0xfff;
-                }
-                break;
-            case 14: // bge
-                if (registers[ins.Rs] >= registers[ins.Rd]) {
-                    PC = registers[ins.Rm] & 0xfff;
-                }
-                break;
-            case 15: // jal
-                PC = registers[ins.Rm & 0xfff];
-                registers[ins.Rd] = PC + 1;
-                break;
-            case 16: // lw
-                registers[ins.Rd] = data_memory[registers[ins.Rs] + registers[ins.Rt]] + registers[ins.Rm];
-                break;
-            case 17: // sw
-                data_memory[registers[ins.Rs] + registers[ins.Rt]] = registers[ins.Rd] + registers[ins.Rm];
-                break;
-            case 18: // reti
-                PC = IOregisters[7];
-                break;
-            case 19: // in
-                registers[ins.Rd] = IOregisters[registers[ins.Rs] + registers[ins.Rt]];
-                break;
-            case 20: // out
-                IOregisters[registers[ins.Rs] + registers[ins.Rt]] = registers[ins.Rm];
-                break;
-            case 21: // halt
-                return 0; // halt the program by returning -1
-                break;
-            default:
-                return -1; // invalid instruction
-                break;
-        }; 
-    };
 
 	return 0;
 }
