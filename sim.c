@@ -87,6 +87,7 @@ int main(int argc, char *argv[]) {
         disk_in[i] = hexToNum(disk_in_text[i], 32);
         printf("Disk line %d number is:%d\n", i + 1, disk_in[i]);
     }
+    
     int irq2_in[MEMORY_SIZE];
     int times_interrupted = write_integers_into_array(argv[4], irq2_in, MEMORY_SIZE);
     printf("Loaded %d lines from interrupt file.\n", times_interrupted);
@@ -100,12 +101,10 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < instruction_count; i++) {
         free(instruction_memory_text[i]);
     }
-    free(instruction_memory);
 
     for (int i = 0; i < data_count; i++) {
         free(data_memory_text[i]);
     }
-    free(data_memory);
 
     for (int i = 0; i < disk_count; i++) {
         free(disk_in_text[i]);
