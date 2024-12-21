@@ -5,7 +5,7 @@
 // define file sizes
 #define MEMORY_SIZE 4096        // Maximum number of lines in the memory
 #define LINE_LENGTH 14          // Each line can hold 12 characters + 2 for newline
-#define DISK_SIZE 128           // Number of sectors in the disk
+#define DISK_SIZE 16384           // Number of sectors in the disk
 #define SECTOR_SIZE 514         // Each line can hold 512 bytes + 2 for newline
 #define MAX_CYCLES (1024*4096)  // Maximum possible cycles needed to execute a program
 
@@ -34,45 +34,68 @@ struct instruction {
 // declare functions
 long long int hexToNum(char number[], int bits);
 int write_file_contents_into_array(char* input_file_name, char** array, int max_lines, int max_line_length);
-int write_integers_into_array(char* input_file_name, int array[], int max_lines);
+int write_integers_into_array(char* input_file_name, int* array, int max_lines);
 void decode_instruction(long long int ins, struct instruction* curr);
 void setImmediates(struct instruction ins);
 int execute(struct instruction ins, int data_memory[]);
 
 int main(int argc, char *argv[]) {
-    printf("IM ALIVVEEE!!");
-    if (argc != 14) { // check that the correct number of files was written in the command line
-        printf("Wrong number of I/O files! need exactly 13 file names");
-        return -1;
+    printf("IM HERRREEE!\n");
+    fflush(stdout);
+    for (int i = 1; i < argc; i++) {
+        printf("Argument %d: %s\n", i, argv[i]);
+        fflush(stdout);
     }
+
+    // if (argc != 14) { // check that the correct number of files was written in the command line
+    //     printf("Wrong number of I/O files! need exactly 13 file names");
+    //     return -1;
+    // }
     // input files:
     char* instruction_memory_text[MEMORY_SIZE];
     int instruction_count = write_file_contents_into_array(argv[1], instruction_memory_text, MEMORY_SIZE, LINE_LENGTH);
+    printf("Loaded %d lines from instruction memory file.\n", instruction_count);
+    fflush(stdout);
     long long int* instruction_memory = malloc(instruction_count * sizeof(long long int));
 
     for (int i = 0; i < instruction_count; i++) {
+        printf("Instrcution line %d is:%s", i + 1, instruction_memory_text[i]);
         instruction_memory[i] = hexToNum(instruction_memory_text[i], 48);
+        printf("Instrcution line %d number is:%lld\n", i + 1, instruction_memory[i]);
     }
 
     char* data_memory_text[MEMORY_SIZE];
     int data_count = write_file_contents_into_array(argv[2], data_memory_text, MEMORY_SIZE, LINE_LENGTH);
+    printf("Loaded %d lines from data memory file.\n", data_count);
+    fflush(stdout);
     int* data_memory = malloc(data_count * sizeof(int));
 
     for (int i = 0; i < data_count; i++) {
+        printf("Data line %d is:%s", i + 1, data_memory_text[i]);
         data_memory[i] = hexToNum(data_memory_text[i], 32);
+        printf("Data line %d number is:%d\n", i + 1, data_memory[i]);
     }
 
     char* disk_in_text[DISK_SIZE];
-    int disk_sectors_used = write_file_contents_into_array(argv[3], disk_in_text, DISK_SIZE, SECTOR_SIZE);
-
-    int irq2_in[MAX_CYCLES];
-    int times_interrupted = write_integers_into_array(argv[4], irq2_in, MAX_CYCLES);
-
-    printf("wrote %d lines of instructions\n", instruction_count);
-    for (int i = 0; i < instruction_count; i++) {
-        printf("Line %d: %s", i + 1, instruction_memory_text[i]);
+    int disk_count = write_file_contents_into_array(argv[3], disk_in_text, DISK_SIZE, LINE_LENGTH);
+    printf("Loaded %d lines from disk file.\n", disk_count);
+    fflush(stdout);
+    int* disk_in = malloc(disk_count * 128 * sizeof(int));
+    
+    for (int i = 0; i < disk_count; i++) {
+        printf("Disk line %d is:%s", i + 1, disk_in_text[i]);
+        disk_in[i] = hexToNum(disk_in_text[i], 32);
+        printf("Disk line %d number is:%d\n", i + 1, disk_in[i]);
     }
+    int irq2_in[MEMORY_SIZE];
+    int times_interrupted = write_integers_into_array(argv[4], irq2_in, MEMORY_SIZE);
+    printf("Loaded %d lines from interrupt file.\n", times_interrupted);
+    fflush(stdout);
 
+    for (int i = 0; i < times_interrupted; i++) {
+        printf("Interrupt line %d is:%d\n", i + 1, irq2_in[i]);
+    }
+    
     // Clean up allocated memory
     for (int i = 0; i < instruction_count; i++) {
         free(instruction_memory_text[i]);
@@ -84,7 +107,7 @@ int main(int argc, char *argv[]) {
     }
     free(data_memory);
 
-    for (int i = 0; i < disk_sectors_used; i++) {
+    for (int i = 0; i < disk_count; i++) {
         free(disk_in_text[i]);
     }
 
@@ -98,6 +121,11 @@ long long int hexToNum(char number[], int bits) {
     }
     long long int res = 0;
     int len = strlen(number);
+    
+    while (len > 0 && (number[len - 1] == '\n' || number[len - 1] == ' ')) {
+        len--;
+    }
+
     for (int i = 0; i < len; i++) {
         int shamt = bits - 4 * (i + 1);
         char c = number[i];
@@ -121,8 +149,8 @@ int write_file_contents_into_array(char* input_file_name, char** array, int max_
         return -1;
     }
     int line_count = 0;
-    char buffer[max_line_length];
-    while (fgets(buffer, max_line_length, file) != NULL && line_count < max_lines) {
+    char buffer[max_line_length + 1];
+    while (fgets(buffer, max_line_length + 1, file) != NULL && line_count < max_lines) {
         array[line_count] = strdup(buffer); // Allocate memory and copy the line
         line_count++;
     }
@@ -130,7 +158,7 @@ int write_file_contents_into_array(char* input_file_name, char** array, int max_
     return line_count;
 }
 
-int write_integers_into_array(char* input_file_name, int array[], int max_lines) {
+int write_integers_into_array(char* input_file_name, int* array, int max_lines) {
     FILE *file = fopen(input_file_name, "r");
     if (!file) {
         printf("Error opening file %s\n", input_file_name);
@@ -139,7 +167,7 @@ int write_integers_into_array(char* input_file_name, int array[], int max_lines)
     int line_count = 0;
     char buffer[32];
     while (fgets(buffer, sizeof(buffer), file) != NULL && line_count < max_lines) {
-        array[line_count] = atoi(buffer);
+        array[line_count] = atoi(buffer); // Allocate memory and copy the line
         line_count++;
     }
     fclose(file);
