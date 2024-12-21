@@ -40,6 +40,7 @@ void setImmediates(struct instruction ins);
 int execute(struct instruction ins, int data_memory[]);
 
 int main(int argc, char *argv[]) {
+    printf("IM ALIVVEEE!!");
     if (argc != 14) { // check that the correct number of files was written in the command line
         printf("Wrong number of I/O files! need exactly 13 file names");
         return -1;
@@ -48,10 +49,7 @@ int main(int argc, char *argv[]) {
     char* instruction_memory_text[MEMORY_SIZE];
     int instruction_count = write_file_contents_into_array(argv[1], instruction_memory_text, MEMORY_SIZE, LINE_LENGTH);
     long long int* instruction_memory = malloc(instruction_count * sizeof(long long int));
-    if (!instruction_memory) {
-        printf("Memory allocation failed for instruction_memory\n");
-        return -1;
-    }
+
     for (int i = 0; i < instruction_count; i++) {
         instruction_memory[i] = hexToNum(instruction_memory_text[i], 48);
     }
@@ -59,11 +57,7 @@ int main(int argc, char *argv[]) {
     char* data_memory_text[MEMORY_SIZE];
     int data_count = write_file_contents_into_array(argv[2], data_memory_text, MEMORY_SIZE, LINE_LENGTH);
     int* data_memory = malloc(data_count * sizeof(int));
-    if (!data_memory) {
-        printf("Memory allocation failed for data_memory\n");
-        free(instruction_memory);
-        return -1;
-    }
+
     for (int i = 0; i < data_count; i++) {
         data_memory[i] = hexToNum(data_memory_text[i], 32);
     }
