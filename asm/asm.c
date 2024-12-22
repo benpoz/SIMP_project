@@ -99,7 +99,7 @@ void first_pass(FILE* input) {
     int current_address = 0;
 
     while (fgets(line, sizeof(line), input)) {
-        char* token = strtok(line, " \t\n");
+        char* token = strtok(line, " \t\n");// strtok splits string to somthing
         if (token == NULL || token[0] == '#') continue;
 
         if (strcmp(token, ".word") == 0) {
@@ -116,7 +116,7 @@ void first_pass(FILE* input) {
 void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
     char line[MAX_LINE_LENGTH];
     char instruction[13];
-    rewind(input);
+    rewind(input); // allows to write and read from the start of the file
 
     while (fgets(line, sizeof(line), input)) {
         char* token = strtok(line, " \t\n");
@@ -142,7 +142,7 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
             if (token[0] == '$') {
                 rm = get_register_number(token);
             } else {
-                imm1 = atoi(token);
+                imm1 = atoi(token); // atoi converts a string with a number in it to its int val
             }
         }
 
