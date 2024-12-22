@@ -125,6 +125,7 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
     char line[MAX_LINE_LENGTH];
     char instruction[13];
     rewind(input);
+    rewind(input);
 
     while (fgets(line, sizeof(line), input)) {
         char* token = strtok(line, " \t\n");
