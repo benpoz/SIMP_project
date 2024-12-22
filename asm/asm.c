@@ -85,18 +85,37 @@ int get_label_address(char* name) {
 }
 
 void handle_data_directive(char* line) {
-    char* token = strtok(line, " \t\n");  // Skip ".word"
-    
-    printf("Processing .word line: %s\n", line);  // Debug line to check input
-    
-    // Parse each token (data) after ".word"
-    while ((token = strtok(NULL, " \t\n")) != NULL) {
-        printf("Token found: %s\n", token);  // Debug token detection
-        data_memory[data_count++] = (int)strtol(token, NULL, 0);
-        
-        // Debugging line to check each value
-        printf("Data[%d] = %d\n", data_count-1, data_memory[data_count-1]);
+    // Skip ".word"
+    strtok(line, " \t\n");
+
+    // Parse address
+    char* token = strtok(NULL, " \t\n");
+    if (!token) {
+        printf("Error: Missing address in .word directive\n");
+        exit(1);
     }
+    int address = (int)strtol(token, NULL, 0);
+
+    // Parse data value
+    token = strtok(NULL, " \t\n");
+    if (!token) {
+        printf("Error: Missing data value in .word directive\n");
+        exit(1);
+    }
+    int value = (int)strtol(token, NULL, 0);
+
+    // Ensure address is within bounds
+    if (address >= DATA_SIZE) {
+        printf("Error: Address %d exceeds data memory size\n", address);
+        exit(1);
+    }
+
+    // Store value at the specified address in data_memory
+    data_memory[address] = value;
+    data_count += address;
+
+    // Debugging output
+    printf("Address: %d, Value: %d written to data_memory\n", address, value);
 }
 
 
@@ -106,12 +125,14 @@ void first_pass(FILE* input) {
     int current_address = 0;
 
     while (fgets(line, sizeof(line), input)) {
+        char line_copy[MAX_LINE_LENGTH];
+        strcpy(line_copy, line); // Make a copy of the line
+
         char* token = strtok(line, " \t\n");
         if (token == NULL || token[0] == '#') continue;
 
         if (strcmp(token, ".word") == 0) {
-            printf("got inside\n");
-            handle_data_directive(line);
+            handle_data_directive(line_copy); // Use the copy for .word processing
         } else if (token[strlen(token) - 1] == ':') {
             token[strlen(token) - 1] = '\0';
             add_label(token, current_address);
@@ -183,7 +204,9 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
     }
 
     for (int i = 0; i < data_count; i++) {
+        printf("data_memory[%i] = %s", i, data_memory[i]);
         fprintf(dmemin, "%08X\n", data_memory[i]);
+        
     }
 }
 
