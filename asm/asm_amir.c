@@ -116,48 +116,85 @@ void first_pass(FILE* input) {
 void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
     char line[MAX_LINE_LENGTH];
     char instruction[13];
-    rewind(input);
+    rewind(input);  // Reset file pointer to the beginning
 
     while (fgets(line, sizeof(line), input)) {
         char* token = strtok(line, " \t\n");
-        if (token == NULL || token[0] == '#') continue;
-        if (token[strlen(token) - 1] == ':') continue;
-        if (strcmp(token, ".word") == 0) continue;
+        if (token == NULL || token[0] == '#') continue; // Skip comments
+        if (token[strlen(token) - 1] == ':') continue;  // Skip labels
+        if (strcmp(token, ".word") == 0) continue;      // Skip .word directive
 
         int opcode = get_opcode(token);
         int rd = 0, rs = 0, rt = 0, rm = 0;
         int imm1 = 0, imm2 = 0;
 
+        // Parse RD
         token = strtok(NULL, ", \t\n");
         if (token) rd = get_register_number(token);
 
+        // Parse RS
         token = strtok(NULL, ", \t\n");
         if (token) rs = get_register_number(token);
 
+        // Parse RT
         token = strtok(NULL, ", \t\n");
         if (token) rt = get_register_number(token);
 
+        // Parse RM or Imm1
         token = strtok(NULL, ", \t\n");
         if (token) {
             if (token[0] == '$') {
-                rm = get_register_number(token);
+                int reg = get_register_number(token);
+                if (reg >= 0) {
+                    rm = reg;  // Register detected
+                } else {
+                    printf("Error: Unknown register %s\n", token);
+                    exit(1);
+                }
+            } else if (isdigit(token[0]) || token[0] == '-') {
+                imm1 = atoi(token);  // Direct integer immediate
             } else {
-                imm1 = atoi(token);
+                // If it's not a number, assume it's a label
+                int label_address = get_label_address(token);
+                if (label_address == -1) {
+                    printf("Error: Undefined label %s\n", token);
+                    exit(1);
+                }
+                imm1 = label_address;  // Assign label address as imm1
             }
         }
 
+        // Parse Imm2
         token = strtok(NULL, ", \t\n");
-        if (token) imm2 = atoi(token);
+        if (token) {
+            if (isdigit(token[0]) || token[0] == '-') {
+                imm2 = atoi(token);  // Immediate integer
+            } else {
+                int label_address = get_label_address(token);
+                if (label_address == -1) {
+                    printf("Error: Undefined label %s\n", token);
+                    exit(1);
+                }
+                imm2 = label_address;
+            }
+        }
 
-        sprintf(instruction, "%02X%01X%01X%01X%01X%03X%03X", 
+        // Debugging output to verify parsed fields
+        printf("Opcode: %02X, RD: %01X, RS: %01X, RT: %01X, RM: %01X, Imm1: %03X, Imm2: %03X\n",
+               opcode, rd, rs, rt, rm, imm1, imm2);
+
+        // Format the instruction into the proper binary format
+        sprintf(instruction, "%02X%01X%01X%01X%01X%03X%03X",
                 opcode, rd, rs, rt, rm, imm1 & 0xFFF, imm2 & 0xFFF);
-        fprintf(imemin, "%s\n", instruction);
+        fprintf(imemin, "%s\n", instruction);  // Write to imemin file
     }
 
+    // Write data memory values to dmemin
     for (int i = 0; i < data_count; i++) {
         fprintf(dmemin, "%08X\n", data_memory[i]);
     }
 }
+
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
