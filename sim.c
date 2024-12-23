@@ -61,24 +61,22 @@ long long int hexToNum(char number[], int bits); // should be signed or unsigned
 int write_file_contents_into_array(char* input_file_name, char** array, int max_lines, int max_line_length);
 int write_integers_into_array(char* input_file_name, int* array, int max_lines);
 long long int* createLongArrayFromFile (char* input_file_name, int max_lines, int max_line_length, int bits);
-void decode_instruction(long long int ins, struct instruction curr);
-void setImmediates(struct instruction ins);
-int execute(struct instruction ins, int data_memory[], FILE* hwtrace, FILE* leds, FILE* disp7seg);
+void decode_instruction(long long int ins, struct instruction *curr);
+void setImmediates(struct instruction *ins);
+int execute(struct instruction *ins, long long int *data_memory, FILE* hwtrace, FILE* leds, FILE* disp7seg);
 
 int main(int argc, char *argv[]) {
+    
     //sanity check
     printf("IM HERRREEE!\n");
     fflush(stdout);
-    for (int i = 1; i < argc; i++) {
-        printf("Argument %d: %s\n", i, argv[i]);
-        fflush(stdout);
-    }
-
-    //check for correct number of agruments
-    // if (argc != 15) { // check that the correct number of files was written in the command line
-    //     printf("Wrong number of I/O files! need exactly 4 inputs & 10 outputs");
-    //     return -1;
-    // } 
+    
+    // check for correct number of agruments
+    
+    if (argc != 15) { // check that the correct number of files was written in the command line
+        printf("Wrong number of I/O files! need exactly 4 inputs & 10 outputs");
+        return -1;
+    } 
 
     //inputs
     long long int* instruction_memory = createLongArrayFromFile(argv[1], MEMORY_SIZE, LINE_LENGTH, 48);
@@ -125,7 +123,7 @@ int main(int argc, char *argv[]) {
             IOregisters[12]++;    
         }
 
-        struct instruction current_instruction;
+        struct instruction *current_instruction;
         decode_instruction(instruction_memory[PC], current_instruction);
         setImmediates(current_instruction);
         //stuff to write before execution
@@ -243,97 +241,97 @@ int write_integers_into_array(char* input_file_name, int* array, int max_lines) 
     return line_count;
 }
 
-void decode_instruction(long long int ins, struct instruction curr) {
-    curr.op_code = (ins >> 40) & 0xff;
-    curr.Rd = (ins >> 36) & 0xf;
-    curr.Rs = (ins >> 32) & 0xf;
-    curr.Rt = (ins >> 28) & 0xf;
-    curr.Rm = (ins >> 24) & 0xf;
-    curr.imm1 = (ins >> 12) & 0xfff;
-    curr.imm2 = ins & 0xfff;
+void decode_instruction(long long int ins, struct instruction *curr) {
+    curr->op_code = (ins >> 40) & 0xff;
+    curr->Rd = (ins >> 36) & 0xf;
+    curr->Rs = (ins >> 32) & 0xf;
+    curr->Rt = (ins >> 28) & 0xf;
+    curr->Rm = (ins >> 24) & 0xf;
+    curr->imm1 = (ins >> 12) & 0xfff;
+    curr->imm2 = ins & 0xfff;
 }
 
-void setImmediates (struct instruction ins) {
+void setImmediates (struct instruction *ins) {
     registers[0] = 0; // just making sure
-    registers[1] = ins.imm1;
-    registers[2] = ins.imm2;         
+    registers[1] = ins->imm1;
+    registers[2] = ins->imm2;         
 }
 
-int execute(struct instruction ins, int data_memory[], FILE* hwtrace, FILE* leds, FILE* disp7seg) { // define operation by opcode
-    switch (ins.op_code) {
+int execute(struct instruction *ins, long long int *data_memory, FILE* hwtrace, FILE* leds, FILE* disp7seg) { // define operation by opcode
+    switch (ins->op_code) {
         case 0: // add
-            registers[ins.Rd] = registers[ins.Rs] + registers[ins.Rt] + registers[ins.Rm];
+            registers[ins->Rd] = registers[ins->Rs] + registers[ins->Rt] + registers[ins->Rm];
             break;
         case 1: // sub
-            registers[ins.Rd] = registers[ins.Rs] - registers[ins.Rt] - registers[ins.Rm];
+            registers[ins->Rd] = registers[ins->Rs] - registers[ins->Rt] - registers[ins->Rm];
             break;
         case 2: // mac
-            registers[ins.Rd] = registers[ins.Rs] * registers[ins.Rt] + registers[ins.Rm];
+            registers[ins->Rd] = registers[ins->Rs] * registers[ins->Rt] + registers[ins->Rm];
             break;
         case 3: // and
-            registers[ins.Rd] = registers[ins.Rs] && registers[ins.Rt] && registers[ins.Rm];
+            registers[ins->Rd] = registers[ins->Rs] && registers[ins->Rt] && registers[ins->Rm];
             break;
         case 4: // or
-            registers[ins.Rd] = registers[ins.Rs] || registers[ins.Rt] || registers[ins.Rm];
+            registers[ins->Rd] = registers[ins->Rs] || registers[ins->Rt] || registers[ins->Rm];
             break;
         case 5: // xor
-            registers[ins.Rd] = registers[ins.Rs] ^ registers[ins.Rt] ^ registers[ins.Rm];
+            registers[ins->Rd] = registers[ins->Rs] ^ registers[ins->Rt] ^ registers[ins->Rm];
             break;
         case 6: // sll
-            registers[ins.Rd] = registers[ins.Rs] << registers[ins.Rt];
+            registers[ins->Rd] = registers[ins->Rs] << registers[ins->Rt];
             break;
         case 7: // sra
-            registers[ins.Rd] = registers[ins.Rs] >> registers[ins.Rt];
+            registers[ins->Rd] = registers[ins->Rs] >> registers[ins->Rt];
             break;
         case 8: // srl
-            registers[ins.Rd] = (int)((unsigned int)registers[ins.Rs] >> registers[ins.Rt]);
+            registers[ins->Rd] = (int)((unsigned int)registers[ins->Rs] >> registers[ins->Rt]);
             break;
         case 9: // beq
-            if (registers[ins.Rs] == registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            if (registers[ins->Rs] == registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
             break;
         case 10: // bne
-            if (registers[ins.Rs] != registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            if (registers[ins->Rs] != registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
             break;
         case 11: // blt
-            if (registers[ins.Rs] < registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            if (registers[ins->Rs] < registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
             break;
         case 12: // bgt
-            if (registers[ins.Rs] > registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            if (registers[ins->Rs] > registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
             break;
         case 13: // ble
-            if (registers[ins.Rs] <= registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            if (registers[ins->Rs] <= registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
             break;
         case 14: // bge
-            if (registers[ins.Rs] >= registers[ins.Rd]) PC = registers[ins.Rm] & 0xfff;
+            if (registers[ins->Rs] >= registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
             break;
         case 15: // jal
-            PC = registers[ins.Rm & 0xfff];
-            registers[ins.Rd] = PC + 1;
+            PC = registers[ins->Rm & 0xfff];
+            registers[ins->Rd] = PC + 1;
             break;
         case 16: // lw
-            registers[ins.Rd] = data_memory[registers[ins.Rs] + registers[ins.Rt]] + registers[ins.Rm];
+            registers[ins->Rd] = data_memory[registers[ins->Rs] + registers[ins->Rt]] + registers[ins->Rm];
             break;
         case 17: // sw
-            data_memory[registers[ins.Rs] + registers[ins.Rt]] = registers[ins.Rd] + registers[ins.Rm];
+            data_memory[registers[ins->Rs] + registers[ins->Rt]] = registers[ins->Rd] + registers[ins->Rm];
             break;
         case 18: // reti
             PC = IOregisters[7];
             break;
         case 19: // in
-            int inreg = registers[ins.Rs] + registers[ins.Rt];
-            registers[ins.Rd] = IOregisters[inreg];
+            int inreg = registers[ins->Rs] + registers[ins->Rt];
+            registers[ins->Rd] = IOregisters[inreg];
             // print read command to files
-            fprintf(hwtrace, "%d READ %s %x\n", CLK, IOregisters_names[inreg], registers[ins.Rd]);
+            fprintf(hwtrace, "%d READ %s %x\n", CLK, IOregisters_names[inreg], registers[ins->Rd]);
             break;
         case 20: // out
-            int outreg = registers[ins.Rs] + registers[ins.Rt];
-            IOregisters[outreg] = registers[ins.Rm];
+            int outreg = registers[ins->Rs] + registers[ins->Rt];
+            IOregisters[outreg] = registers[ins->Rm];
             // print write command to files
-            fprintf(hwtrace, "%d WRITE %s %x\n", CLK, IOregisters_names[outreg], registers[ins.Rm]);
-            if (outreg = 9) {
+            fprintf(hwtrace, "%d WRITE %s %x\n", CLK, IOregisters_names[outreg], registers[ins->Rm]);
+            if (outreg == 9) {
                 fprintf(leds, "%d %x", CLK,  IOregisters[outreg]);
             }
-            if (outreg = 10) {
+            if (outreg == 10) {
                 fprintf(disp7seg, "%d %x", CLK,  IOregisters[outreg]);
             }
             break;
