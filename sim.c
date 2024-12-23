@@ -10,8 +10,8 @@
 #define MAX_CYCLES (1024*4096)  // Maximum possible cycles needed to execute a program
 
 // create program counter & clock
-int CLK = 0;
-int PC = 0;
+unsigned int CLK = 0;
+unsigned int PC = 0;
 
 // create registers
 int registers[16] = {0}; // set all to zero
@@ -19,6 +19,31 @@ int registers[16] = {0}; // set all to zero
 // create IOregisters
 int IOregisters[22] = {0};
 unsigned char monitor[256][256]; // unsigned char <- every pixel value is a byte
+char IOregisters_names[22][2] = {
+    "irq0enable",
+    "irq1enable",
+    "irq2enable",
+    "irq0status",
+    "irq1status",
+    "irq2status",
+    "irqhandler",
+    "irqerturn",
+    "clks",
+    "leds",
+    "display7seg",
+    "timerenable",
+    "timercurrent",
+    "timermax",
+    "diskcmd",
+    "disksector",
+    "diskbuffer",
+    "diskstatus",
+    "reserved1",
+    "reserved2",
+    "monitoraddr",
+    "monitordata",
+    "monitorcmd"
+};
 
 // define instruction structure
 struct instruction {
@@ -32,14 +57,16 @@ struct instruction {
 };
 
 // declare functions
-long long int hexToNum(char number[], int bits);
+long long int hexToNum(char number[], int bits); // should be signed or unsigned?
 int write_file_contents_into_array(char* input_file_name, char** array, int max_lines, int max_line_length);
 int write_integers_into_array(char* input_file_name, int* array, int max_lines);
-void decode_instruction(long long int ins, struct instruction* curr);
+long long int* createLongArrayFromFile (char* input_file_name, int max_lines, int max_line_length, int bits);
+void decode_instruction(long long int ins, struct instruction curr);
 void setImmediates(struct instruction ins);
-int execute(struct instruction ins, int data_memory[]);
+int execute(struct instruction ins, int data_memory[], FILE* hwtrace, FILE* leds, FILE* disp7seg);
 
 int main(int argc, char *argv[]) {
+    //sanity check
     printf("IM HERRREEE!\n");
     fflush(stdout);
     for (int i = 1; i < argc; i++) {
@@ -47,47 +74,17 @@ int main(int argc, char *argv[]) {
         fflush(stdout);
     }
 
-    // if (argc != 14) { // check that the correct number of files was written in the command line
-    //     printf("Wrong number of I/O files! need exactly 13 file names");
+    //check for correct number of agruments
+    // if (argc != 15) { // check that the correct number of files was written in the command line
+    //     printf("Wrong number of I/O files! need exactly 4 inputs & 10 outputs");
     //     return -1;
-    // }
-    // input files:
-    char* instruction_memory_text[MEMORY_SIZE];
-    int instruction_count = write_file_contents_into_array(argv[1], instruction_memory_text, MEMORY_SIZE, LINE_LENGTH);
-    printf("Loaded %d lines from instruction memory file.\n", instruction_count);
-    fflush(stdout);
-    long long int* instruction_memory = malloc(instruction_count * sizeof(long long int));
+    // } 
 
-    for (int i = 0; i < instruction_count; i++) {
-        printf("Instrcution line %d is:%s", i + 1, instruction_memory_text[i]);
-        instruction_memory[i] = hexToNum(instruction_memory_text[i], 48);
-        printf("Instrcution line %d number is:%lld\n", i + 1, instruction_memory[i]);
-    }
+    //inputs
+    long long int* instruction_memory = createLongArrayFromFile(argv[1], MEMORY_SIZE, LINE_LENGTH, 48);
+    long long int* data_memory = createLongArrayFromFile(argv[2], MEMORY_SIZE, LINE_LENGTH, 32);
+    long long int* disk_in = createLongArrayFromFile(argv[3], MEMORY_SIZE, LINE_LENGTH, 32);
 
-    char* data_memory_text[MEMORY_SIZE];
-    int data_count = write_file_contents_into_array(argv[2], data_memory_text, MEMORY_SIZE, LINE_LENGTH);
-    printf("Loaded %d lines from data memory file.\n", data_count);
-    fflush(stdout);
-    int* data_memory = malloc(data_count * sizeof(int));
-
-    for (int i = 0; i < data_count; i++) {
-        printf("Data line %d is:%s", i + 1, data_memory_text[i]);
-        data_memory[i] = hexToNum(data_memory_text[i], 32);
-        printf("Data line %d number is:%d\n", i + 1, data_memory[i]);
-    }
-
-    char* disk_in_text[DISK_SIZE];
-    int disk_count = write_file_contents_into_array(argv[3], disk_in_text, DISK_SIZE, LINE_LENGTH);
-    printf("Loaded %d lines from disk file.\n", disk_count);
-    fflush(stdout);
-    int* disk_in = malloc(disk_count * 128 * sizeof(int));
-    
-    for (int i = 0; i < disk_count; i++) {
-        printf("Disk line %d is:%s", i + 1, disk_in_text[i]);
-        disk_in[i] = hexToNum(disk_in_text[i], 32);
-        printf("Disk line %d number is:%d\n", i + 1, disk_in[i]);
-    }
-    
     int irq2_in[MEMORY_SIZE];
     int times_interrupted = write_integers_into_array(argv[4], irq2_in, MEMORY_SIZE);
     printf("Loaded %d lines from interrupt file.\n", times_interrupted);
@@ -96,21 +93,94 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < times_interrupted; i++) {
         printf("Interrupt line %d is:%d\n", i + 1, irq2_in[i]);
     }
+    //outputs
+    FILE* memory_out = fopen(argv[5], "w");
+    FILE* reg_out = fopen(argv[6], "w");
+    FILE* trace = fopen(argv[7], "w");
+    FILE* hwregtrace = fopen(argv[8], "w");
+    FILE* cycles = fopen(argv[9], "w");
+    FILE* leds = fopen(argv[10], "w");
+    FILE* disp7seg = fopen(argv[11], "w");
+    FILE* disk_out = fopen(argv[12], "w");
+    FILE* monitor_txt = fopen(argv[13], "w");
+    FILE* monitor_yuv = fopen(argv[14], "w");
+
+    //execution loop
+    int run = 1;
+    while (run) { // need to check relative timing of each interrupt/timer
+        int irq = (IOregisters[0] & IOregisters[3]) 
+                | (IOregisters[1] & IOregisters[4]) 
+                | (IOregisters[2] & IOregisters[5]);
+        
+        if (irq & (IOregisters[7] != PC)) { //check not nested interrupts
+            IOregisters[7] = PC;
+            PC = IOregisters[6];
+        }
+        if (IOregisters[11]) { //timer //incr timer after execute of before?
+            IOregisters[0] = 1;
+            if (IOregisters[12] == IOregisters[13]) {
+                IOregisters[3] = 1;
+                IOregisters[12] = -1; // will reset to 0 next line
+            }
+            IOregisters[12]++;    
+        }
+
+        struct instruction current_instruction;
+        decode_instruction(instruction_memory[PC], current_instruction);
+        setImmediates(current_instruction);
+        //stuff to write before execution
+        
+        //add trace line
+        fprintf(trace, "%x %x ", PC, instruction_memory[PC]);
+        for (int i = 0; i < 15; i++) {fprintf(trace, "%x ", registers[i]);}
+        fprintf(trace, "%x\n", registers[15]); //new line after printing everything
+        
+        int halt = execute(current_instruction, data_memory, hwregtrace, leds, disp7seg);
+        
+        //stuff to write after execution:
+
+        //finish 
+        if (halt) {
+            fprintf(cycles, "%d", CLK);
+            break;
+        }
+        PC++;
+        CLK++;
+    }
     
-    // Clean up allocated memory
-    for (int i = 0; i < instruction_count; i++) {
-        free(instruction_memory_text[i]);
+    
+    //write to end-of-run output files:
+    
+    //data memory
+    int memory_out_size = sizeof(data_memory) / sizeof(data_memory[0]);
+    for (int i = 0; i < memory_out_size; i++) {
+        fprintf(memory_out, "%x\n", data_memory[i]);
     }
 
-    for (int i = 0; i < data_count; i++) {
-        free(data_memory_text[i]);
+    //disk
+    int disk_out_size = sizeof(disk_in) / sizeof(disk_in[0]);
+    for (int i = 0; i < disk_out_size; i++) {
+        fprintf(disk_out, "%x\n", disk_in[i]);
+    }
+    
+    //regout
+    for (int i = 3; i < 16; i++) {
+        fprintf(reg_out, "%x\n", registers[i]);
     }
 
-    for (int i = 0; i < disk_count; i++) {
-        free(disk_in_text[i]);
-    }
-
+    //cycles
+    fprintf(cycles, "%d", CLK);
     return 0;
+
+    //monitors
+    for (int i = 0; i < 256; i++) {
+        for (int j = 0; j < 256; j++) {
+            fprintf(monitor_txt, "%x\n", monitor[i][j]);
+            fprintf(monitor_yuv, "%x\n", monitor[i][j]);
+        }
+    }
+
+
 }
 
 // define functions
@@ -173,14 +243,14 @@ int write_integers_into_array(char* input_file_name, int* array, int max_lines) 
     return line_count;
 }
 
-void decode_instruction(long long int ins, struct instruction* curr) {
-    curr->op_code = (ins >> 40) & 0xff;
-    curr->Rd = (ins >> 36) & 0xf;
-    curr->Rs = (ins >> 32) & 0xf;
-    curr->Rt = (ins >> 28) & 0xf;
-    curr->Rm = (ins >> 24) & 0xf;
-    curr->imm1 = (ins >> 12) & 0xfff;
-    curr->imm2 = ins & 0xfff;
+void decode_instruction(long long int ins, struct instruction curr) {
+    curr.op_code = (ins >> 40) & 0xff;
+    curr.Rd = (ins >> 36) & 0xf;
+    curr.Rs = (ins >> 32) & 0xf;
+    curr.Rt = (ins >> 28) & 0xf;
+    curr.Rm = (ins >> 24) & 0xf;
+    curr.imm1 = (ins >> 12) & 0xfff;
+    curr.imm2 = ins & 0xfff;
 }
 
 void setImmediates (struct instruction ins) {
@@ -189,7 +259,7 @@ void setImmediates (struct instruction ins) {
     registers[2] = ins.imm2;         
 }
 
-int execute(struct instruction ins, int data_memory[]) { // define operation by opcode
+int execute(struct instruction ins, int data_memory[], FILE* hwtrace, FILE* leds, FILE* disp7seg) { // define operation by opcode
     switch (ins.op_code) {
         case 0: // add
             registers[ins.Rd] = registers[ins.Rs] + registers[ins.Rt] + registers[ins.Rm];
@@ -250,17 +320,46 @@ int execute(struct instruction ins, int data_memory[]) { // define operation by 
             PC = IOregisters[7];
             break;
         case 19: // in
-            registers[ins.Rd] = IOregisters[registers[ins.Rs] + registers[ins.Rt]];
+            int inreg = registers[ins.Rs] + registers[ins.Rt];
+            registers[ins.Rd] = IOregisters[inreg];
+            // print read command to files
+            fprintf(hwtrace, "%d READ %s %x\n", CLK, IOregisters_names[inreg], registers[ins.Rd]);
             break;
         case 20: // out
-            IOregisters[registers[ins.Rs] + registers[ins.Rt]] = registers[ins.Rm];
+            int outreg = registers[ins.Rs] + registers[ins.Rt];
+            IOregisters[outreg] = registers[ins.Rm];
+            // print write command to files
+            fprintf(hwtrace, "%d WRITE %s %x\n", CLK, IOregisters_names[outreg], registers[ins.Rm]);
+            if (outreg = 9) {
+                fprintf(leds, "%d %x", CLK,  IOregisters[outreg]);
+            }
+            if (outreg = 10) {
+                fprintf(disp7seg, "%d %x", CLK,  IOregisters[outreg]);
+            }
             break;
         case 21: // halt
-            return 1; // halt the program by returning 0
-            break;
-        default:
-            return -1; // invalid instruction
+            return 1; 
             break;
     }
     return 0;
 } // define operation by opcode
+
+long long int* createLongArrayFromFile (char* input_file_name, int max_lines, int max_line_length, int bits) {
+    char* file_text[max_lines];
+    int line_count = write_file_contents_into_array(input_file_name, file_text, max_lines, max_line_length);
+    printf("Loaded %d lines from instruction file.\n", line_count);
+    fflush(stdout);
+    long long int* arr = malloc(line_count * sizeof(long long int));
+
+    for (int i = 0; i < line_count; i++) {
+        printf("Instrcution line %d is:%s", i + 1, file_text[i]);
+        arr[i] = hexToNum(file_text[i], bits);
+        printf("Instrcution line %d number is:%lld\n", i + 1, arr[i]);
+    }
+
+    for (int i = 0; i < line_count; i++) {
+        free(file_text[i]);
+    }
+
+    return arr;
+}
