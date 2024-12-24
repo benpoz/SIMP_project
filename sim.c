@@ -129,9 +129,9 @@ int main(int argc, char *argv[]) {
         //stuff to write before execution
         
         //add trace line
-        fprintf(trace, "%x %x ", PC, instruction_memory[PC]);
-        for (int i = 0; i < 15; i++) {fprintf(trace, "%x ", registers[i]);}
-        fprintf(trace, "%x\n", registers[15]); //new line after printing everything
+        fprintf(trace, "%08x %08x ", PC, instruction_memory[PC]);
+        for (int i = 0; i < 15; i++) {fprintf(trace, "%08x ", registers[i]);}
+        fprintf(trace, "%08x\n", registers[15]); //new line after printing everything
         
         int halt = execute(current_instruction, data_memory, hwregtrace, leds, disp7seg);
         
@@ -152,18 +152,18 @@ int main(int argc, char *argv[]) {
     //data memory
     int memory_out_size = sizeof(data_memory) / sizeof(data_memory[0]);
     for (int i = 0; i < memory_out_size; i++) {
-        fprintf(memory_out, "%x\n", data_memory[i]);
+        fprintf(memory_out, "%08x\n", data_memory[i]);
     }
 
     //disk
     int disk_out_size = sizeof(disk_in) / sizeof(disk_in[0]);
     for (int i = 0; i < disk_out_size; i++) {
-        fprintf(disk_out, "%x\n", disk_in[i]);
+        fprintf(disk_out, "%08x\n", disk_in[i]);
     }
     
     //regout
     for (int i = 3; i < 16; i++) {
-        fprintf(reg_out, "%x\n", registers[i]);
+        fprintf(reg_out, "%08x\n", registers[i]);
     }
 
     //cycles
@@ -173,8 +173,8 @@ int main(int argc, char *argv[]) {
     //monitors
     for (int i = 0; i < 256; i++) {
         for (int j = 0; j < 256; j++) {
-            fprintf(monitor_txt, "%x\n", monitor[i][j]);
-            fprintf(monitor_yuv, "%x\n", monitor[i][j]);
+            fprintf(monitor_txt, "%02x\n", monitor[i][j]);
+            fprintf(monitor_yuv, "%02x\n", monitor[i][j]);
         }
     }
 
@@ -321,18 +321,18 @@ int execute(struct instruction *ins, long long int *data_memory, FILE* hwtrace, 
             int inreg = registers[ins->Rs] + registers[ins->Rt];
             registers[ins->Rd] = IOregisters[inreg];
             // print read command to files
-            fprintf(hwtrace, "%d READ %s %x\n", CLK, IOregisters_names[inreg], registers[ins->Rd]);
+            fprintf(hwtrace, "%d READ %s %08x\n", CLK, IOregisters_names[inreg], registers[ins->Rd]);
             break;
         case 20: // out
             int outreg = registers[ins->Rs] + registers[ins->Rt];
             IOregisters[outreg] = registers[ins->Rm];
             // print write command to files
-            fprintf(hwtrace, "%d WRITE %s %x\n", CLK, IOregisters_names[outreg], registers[ins->Rm]);
+            fprintf(hwtrace, "%d WRITE %s %08x\n", CLK, IOregisters_names[outreg], registers[ins->Rm]);
             if (outreg == 9) {
-                fprintf(leds, "%d %x", CLK,  IOregisters[outreg]);
+                fprintf(leds, "%d %08x", CLK,  IOregisters[outreg]);
             }
             if (outreg == 10) {
-                fprintf(disp7seg, "%d %x", CLK,  IOregisters[outreg]);
+                fprintf(disp7seg, "%d %08x", CLK,  IOregisters[outreg]);
             }
             break;
         case 21: // halt
