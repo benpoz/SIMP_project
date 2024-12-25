@@ -19,6 +19,7 @@ int registers[16] = {0}; // set all to zero
 // create IOregisters
 int IOregisters[22] = {0};
 unsigned char monitor[256][256] = {0}; // unsigned char <- every pixel value is a byte
+
 char IOregisters_names[22][12] = {
     "irq0enable",
     "irq1enable",
@@ -103,6 +104,7 @@ int main(int argc, char *argv[]) {
     FILE* monitor_txt = fopen(argv[13], "w");
     FILE* monitor_yuv = fopen(argv[14], "w");
 
+<<<<<<< HEAD
     //execution loop
     int run = 1;
     while (run) { // need to check relative timing of each interrupt/timer
@@ -126,6 +128,13 @@ int main(int argc, char *argv[]) {
         struct instruction *current_instruction;
         decode_instruction(instruction_memory[PC], current_instruction);
         setImmediates(current_instruction);
+=======
+        struct instruction *current_instruction = malloc(sizeof(struct instruction));
+        decode_instruction(instruction_memory[PC], current_instruction);
+        setImmediates(current_instruction);
+        free(current_instruction);
+
+>>>>>>> 4bbe0a866349eb73ee6a1646e53d740eb24d87fb
         //stuff to write before execution
         
         //add trace line
@@ -147,8 +156,11 @@ int main(int argc, char *argv[]) {
     }
     
     
+<<<<<<< HEAD
     //write to end-of-run output files:
     
+=======
+>>>>>>> 4bbe0a866349eb73ee6a1646e53d740eb24d87fb
     //data memory
     int memory_out_size = sizeof(data_memory) / sizeof(data_memory[0]);
     for (int i = 0; i < memory_out_size; i++) {
@@ -165,10 +177,14 @@ int main(int argc, char *argv[]) {
     for (int i = 3; i < 16; i++) {
         fprintf(reg_out, "%08x\n", registers[i]);
     }
+<<<<<<< HEAD
 
     //cycles
     fprintf(cycles, "%d", CLK);
     return 0;
+=======
+    
+>>>>>>> 4bbe0a866349eb73ee6a1646e53d740eb24d87fb
 
     //monitors
     for (int i = 0; i < 256; i++) {
@@ -178,7 +194,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
+    return 0;
 }
 
 // define functions
