@@ -113,28 +113,6 @@ void handle_data_directive(char* line) {
         }
     } else {
         printf("Error: Address out of range (%d)\n", address);
-    char* token = strtok(line, " \t\n");
-    if (token == NULL || strcmp(token, ".word") != 0) return;
-
-    token = strtok(NULL, " \t\n");  // Address
-    int address = 0;
-    if (token) {
-        address = (token[0] == '0' && token[1] == 'x') ? strtol(token, NULL, 16) : atoi(token);
-    }
-
-    token = strtok(NULL, " \t\n");  // Data
-    int data = 0;
-    if (token) {
-        data = (token[0] == '0' && token[1] == 'x') ? strtol(token, NULL, 16) : atoi(token);
-    }
-
-    if (address >= 0 && address < DATA_SIZE) {
-        data_memory[address] = data;
-        if (data != 0 && address > highest_address) {
-            highest_address = address;  // Update highest address with non-zero value
-        }
-    } else {
-        printf("Error: Address out of range (%d)\n", address);
         exit(1);
     }
 }
@@ -209,7 +187,6 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
             }
         }
 
-
         token = strtok(NULL, ", \t\n");
         if (token) {
             if (isdigit(token[0]) || token[0] == '-') {
@@ -232,12 +209,9 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
 
     // Write to dmemin up to highest_address
     for (int i = 0; i <= highest_address; i++) {
-    // Write to dmemin up to highest_address
-    for (int i = 0; i <= highest_address; i++) {
         fprintf(dmemin, "%08X\n", data_memory[i]);
     }
 }
-
 
 
 int main(int argc, char* argv[]) {
