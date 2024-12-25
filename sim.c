@@ -5,7 +5,7 @@
 // define file sizes
 #define MEMORY_SIZE 4096        // Maximum number of lines in the memory
 #define LINE_LENGTH 14          // Each line can hold 12 characters + 2 for newline
-#define DISK_SIZE 16384           // Number of sectors in the disk
+#define DISK_SIZE 16384           // Number of bytes in the disk
 #define SECTOR_SIZE 514         // Each line can hold 512 bytes + 2 for newline
 #define MAX_CYCLES (1024*4096)  // Maximum possible cycles needed to execute a program
 
@@ -19,7 +19,6 @@ int registers[16] = {0}; // set all to zero
 // create IOregisters
 int IOregisters[22] = {0};
 unsigned char monitor[256][256] = {0}; // unsigned char <- every pixel value is a byte
-
 char IOregisters_names[22][12] = {
     "irq0enable",
     "irq1enable",
