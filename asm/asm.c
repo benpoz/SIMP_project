@@ -1,28 +1,33 @@
+// Required header files for the assembler
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
+// Definitions for limits and sizes used in the assembler
 #define MAX_LINE_LENGTH 1000
 #define MAX_LABEL_LENGTH 50
 #define MAX_LABELS 1000
 #define INSTRUCTION_SIZE 4096
 #define DATA_SIZE 4096
 
+// Structure to represent a label with its name and memory address
 typedef struct {
-    char name[MAX_LABEL_LENGTH];
+    char name[MAX_LABEL_LENGTH]; 
     int address;
 } Label;
 
+// Array to store all labels and a counter to track the number of labels
 Label labels[MAX_LABELS];
 int label_count = 0;
 
+// Arrays and counters for instructions and data memory
 char* instructions[INSTRUCTION_SIZE];
 int instruction_count = 0;
-
-int data_memory[DATA_SIZE] = {0};
+int data_memory[DATA_SIZE] = {0};// Data memory initialized to zero
 int highest_address = 0;  // Track highest address used
 
+// Function to map register names to their numbers
 int get_register_number(char* reg) {
     if (strcmp(reg, "$zero") == 0) return 0;
     if (strcmp(reg, "$imm1") == 0) return 1;
@@ -40,9 +45,10 @@ int get_register_number(char* reg) {
     if (strcmp(reg, "$gp") == 0) return 13;
     if (strcmp(reg, "$sp") == 0) return 14;
     if (strcmp(reg, "$ra") == 0) return 15;
-    return -1;
+    return -1; //Invalid register name
 }
 
+// Function to map instruction mnemonics to their opcodes
 int get_opcode(char* mnemonic) {
     if (strcmp(mnemonic, "add") == 0) return 0;
     if (strcmp(mnemonic, "sub") == 0) return 1;
@@ -66,9 +72,9 @@ int get_opcode(char* mnemonic) {
     if (strcmp(mnemonic, "in") == 0) return 19;
     if (strcmp(mnemonic, "out") == 0) return 20;
     if (strcmp(mnemonic, "halt") == 0) return 21;
-    return -1;
+    return -1;// Invalid mnemonic
 }
-
+// Function to add a label and its address to the labels array
 void add_label(char* name, int address) {
     strcpy(labels[label_count].name, name);
     labels[label_count].address = address;
