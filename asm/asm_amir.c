@@ -1,28 +1,33 @@
+// Required header files for the assembler
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
+// Definitions for limits and sizes used in the assembler
 #define MAX_LINE_LENGTH 1000
 #define MAX_LABEL_LENGTH 50
 #define MAX_LABELS 1000
 #define INSTRUCTION_SIZE 4096
 #define DATA_SIZE 4096
 
+// Structure to represent a label with its name and memory address
 typedef struct {
-    char name[MAX_LABEL_LENGTH];
+    char name[MAX_LABEL_LENGTH]; 
     int address;
 } Label;
 
+// Array to store all labels and a counter to track the number of labels
 Label labels[MAX_LABELS];
 int label_count = 0;
 
+// Arrays and counters for instructions and data memory
 char* instructions[INSTRUCTION_SIZE];
 int instruction_count = 0;
+int data_memory[DATA_SIZE] = {0};// Data memory initialized to zero
+int highest_address = 0;  // Track highest address used
 
-int data_memory[DATA_SIZE] = {0};
-int data_count = 0;
-
+// Function to map register names to their numbers
 int get_register_number(char* reg) {
     if (strcmp(reg, "$zero") == 0) return 0;
     if (strcmp(reg, "$imm1") == 0) return 1;
@@ -40,9 +45,10 @@ int get_register_number(char* reg) {
     if (strcmp(reg, "$gp") == 0) return 13;
     if (strcmp(reg, "$sp") == 0) return 14;
     if (strcmp(reg, "$ra") == 0) return 15;
-    return -1;
+    return -1; //Invalid register name
 }
 
+// Function to map instruction mnemonics to their opcodes
 int get_opcode(char* mnemonic) {
     if (strcmp(mnemonic, "add") == 0) return 0;
     if (strcmp(mnemonic, "sub") == 0) return 1;
@@ -66,9 +72,9 @@ int get_opcode(char* mnemonic) {
     if (strcmp(mnemonic, "in") == 0) return 19;
     if (strcmp(mnemonic, "out") == 0) return 20;
     if (strcmp(mnemonic, "halt") == 0) return 21;
-    return -1;
+    return -1;// Invalid mnemonic
 }
-
+// Function to add a label and its address to the labels array
 void add_label(char* name, int address) {
     strcpy(labels[label_count].name, name);
     labels[label_count].address = address;
@@ -86,24 +92,46 @@ int get_label_address(char* name) {
 
 void handle_data_directive(char* line) {
     char* token = strtok(line, " \t\n");
-    token = strtok(NULL, " \t\n");
-    
-    while (token != NULL) {
-        data_memory[data_count++] = (int)strtol(token, NULL, 0);
-        token = strtok(NULL, " \t\n");
+    if (token == NULL || strcmp(token, ".word") != 0) return;
+
+    token = strtok(NULL, " \t\n");  // Address
+    int address = 0;
+    if (token) {
+        address = (token[0] == '0' && token[1] == 'x') ? strtol(token, NULL, 16) : atoi(token);
+    }
+
+    token = strtok(NULL, " \t\n");  // Data
+    int data = 0;
+    if (token) {
+        data = (token[0] == '0' && token[1] == 'x') ? strtol(token, NULL, 16) : atoi(token);
+    }
+
+    if (address >= 0 && address < DATA_SIZE) {
+        data_memory[address] = data;
+        if (data != 0 && address > highest_address) {
+            highest_address = address;  // Update highest address with non-zero value
+        }
+    } else {
+        printf("Error: Address out of range (%d)\n", address);
+        exit(1);
     }
 }
+
+
 
 void first_pass(FILE* input) {
     char line[MAX_LINE_LENGTH];
     int current_address = 0;
 
     while (fgets(line, sizeof(line), input)) {
+        char line_copy[MAX_LINE_LENGTH];
+        strcpy(line_copy, line);  // Make a copy of the line
+
         char* token = strtok(line, " \t\n");
         if (token == NULL || token[0] == '#') continue;
 
         if (strcmp(token, ".word") == 0) {
-            handle_data_directive(line);
+            handle_data_directive(line_copy);  // Use the copy for .word processing
         } else if (token[strlen(token) - 1] == ':') {
             token[strlen(token) - 1] = '\0';
             add_label(token, current_address);
@@ -113,62 +141,52 @@ void first_pass(FILE* input) {
     }
 }
 
+
 void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
     char line[MAX_LINE_LENGTH];
     char instruction[13];
-    rewind(input);  // Reset file pointer to the beginning
+    rewind(input);
 
     while (fgets(line, sizeof(line), input)) {
         char* token = strtok(line, " \t\n");
-        if (token == NULL || token[0] == '#') continue; // Skip comments
-        if (token[strlen(token) - 1] == ':') continue;  // Skip labels
-        if (strcmp(token, ".word") == 0) continue;      // Skip .word directive
+        if (token == NULL || token[0] == '#') continue;
+        if (token[strlen(token) - 1] == ':') continue;
+        if (strcmp(token, ".word") == 0) continue;
 
         int opcode = get_opcode(token);
         int rd = 0, rs = 0, rt = 0, rm = 0;
         int imm1 = 0, imm2 = 0;
 
-        // Parse RD
         token = strtok(NULL, ", \t\n");
         if (token) rd = get_register_number(token);
 
-        // Parse RS
         token = strtok(NULL, ", \t\n");
         if (token) rs = get_register_number(token);
 
-        // Parse RT
         token = strtok(NULL, ", \t\n");
         if (token) rt = get_register_number(token);
 
-        // Parse RM or Imm1
+        token = strtok(NULL, ", \t\n");
+        if (token) rm = get_register_number(token);
+
         token = strtok(NULL, ", \t\n");
         if (token) {
-            if (token[0] == '$') {
-                int reg = get_register_number(token);
-                if (reg >= 0) {
-                    rm = reg;  // Register detected
-                } else {
-                    printf("Error: Unknown register %s\n", token);
-                    exit(1);
-                }
-            } else if (isdigit(token[0]) || token[0] == '-') {
-                imm1 = atoi(token);  // Direct integer immediate
+            if (isdigit(token[0]) || token[0] == '-') {
+                imm1 = atoi(token);
             } else {
-                // If it's not a number, assume it's a label
                 int label_address = get_label_address(token);
                 if (label_address == -1) {
                     printf("Error: Undefined label %s\n", token);
                     exit(1);
                 }
-                imm1 = label_address;  // Assign label address as imm1
+                imm1 = label_address;
             }
         }
 
-        // Parse Imm2
         token = strtok(NULL, ", \t\n");
         if (token) {
             if (isdigit(token[0]) || token[0] == '-') {
-                imm2 = atoi(token);  // Immediate integer
+                imm2 = atoi(token);
             } else {
                 int label_address = get_label_address(token);
                 if (label_address == -1) {
@@ -179,18 +197,13 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
             }
         }
 
-        // Debugging output to verify parsed fields
-        printf("Opcode: %02X, RD: %01X, RS: %01X, RT: %01X, RM: %01X, Imm1: %03X, Imm2: %03X\n",
-               opcode, rd, rs, rt, rm, imm1, imm2);
-
-        // Format the instruction into the proper binary format
-        sprintf(instruction, "%02X%01X%01X%01X%01X%03X%03X",
+        sprintf(instruction, "%02X%01X%01X%01X%01X%03X%03X", 
                 opcode, rd, rs, rt, rm, imm1 & 0xFFF, imm2 & 0xFFF);
-        fprintf(imemin, "%s\n", instruction);  // Write to imemin file
+        fprintf(imemin, "%s\n", instruction);
     }
 
-    // Write data memory values to dmemin
-    for (int i = 0; i < data_count; i++) {
+    // Write to dmemin up to highest_address
+    for (int i = 0; i <= highest_address; i++) {
         fprintf(dmemin, "%08X\n", data_memory[i]);
     }
 }
@@ -231,3 +244,6 @@ int main(int argc, char* argv[]) {
     fclose(dmemin);
     return 0;
 }
+
+
+
