@@ -19,6 +19,7 @@ int registers[16] = {0}; // set all to zero
 // create IOregisters
 int IOregisters[22] = {0};
 unsigned char monitor[256][256] = {0}; // unsigned char <- every pixel value is a byte
+
 char IOregisters_names[22][12] = {
     "irq0enable",
     "irq1enable",
@@ -117,11 +118,11 @@ int main(int argc, char *argv[]) {
         //     IOregisters[12]++;    
         // }
 
-        struct instruction *current_instruction; 
-        
-        decode_instruction(instruction_memory[PC], current_instruction); 
-        setImmediates(current_instruction); 
-        
+        struct instruction *current_instruction = malloc(sizeof(struct instruction));
+        decode_instruction(instruction_memory[PC], current_instruction);
+        setImmediates(current_instruction);
+        free(current_instruction);
+
         //stuff to write before execution
         
         //add trace line 
@@ -143,20 +144,6 @@ int main(int argc, char *argv[]) {
     
     //write to end-of-run output files: 
     
-
-    // this does nothing but commenting/deleting it breaks the program :)
-    ///////////////////////////////////////////
-    long long int sum = 0;
-    int non_zero_lines = 0;
-    for (int i = 0; i < MEMORY_SIZE; i++) {
-        sum += data_memory[i];
-    }
-    while (sum != 0) {
-        sum -= data_memory[non_zero_lines];
-        non_zero_lines++;
-    }
-    ///////////////////////////////////////////
-    
     //data memory
     int lines_data = countLinesToPrint(data_memory, MEMORY_SIZE);
     for (int i = 0; i < lines_data; i++) {
@@ -173,8 +160,7 @@ int main(int argc, char *argv[]) {
     for (int i = 3; i < 16; i++) {
         fprintf(reg_out, "%08X\n", registers[i]);
     }
-
-    return 0;
+    
 
     //monitors
     for (int i = 0; i < 256; i++) {
@@ -184,7 +170,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
+    return 0;
 }
 
 // define functions
