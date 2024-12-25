@@ -21,7 +21,7 @@ char* instructions[INSTRUCTION_SIZE];
 int instruction_count = 0;
 
 int data_memory[DATA_SIZE] = {0};
-int data_count = 0;
+int highest_address = 0;  // Track highest address used
 
 int get_register_number(char* reg) {
     if (strcmp(reg, "$zero") == 0) return 0;
@@ -85,37 +85,30 @@ int get_label_address(char* name) {
 }
 
 void handle_data_directive(char* line) {
-    // Skip ".word"
-    strtok(line, " \t\n");
+    char* token = strtok(line, " \t\n");
+    if (token == NULL || strcmp(token, ".word") != 0) return;
 
-    // Parse address
-    char* token = strtok(NULL, " \t\n");
-    if (!token) {
-        printf("Error: Missing address in .word directive\n");
-        exit(1);
-    }
-    int address = (int)strtol(token, NULL, 0);
-
-    // Parse data value
-    token = strtok(NULL, " \t\n");
-    if (!token) {
-        printf("Error: Missing data value in .word directive\n");
-        exit(1);
-    }
-    int value = (int)strtol(token, NULL, 0);
-
-    // Ensure address is within bounds
-    if (address >= DATA_SIZE) {
-        printf("Error: Address %d exceeds data memory size\n", address);
-        exit(1);
+    token = strtok(NULL, " \t\n");  // Address
+    int address = 0;
+    if (token) {
+        address = (token[0] == '0' && token[1] == 'x') ? strtol(token, NULL, 16) : atoi(token);
     }
 
-    // Store value at the specified address in data_memory
-    data_memory[address] = value;
-    data_count += address;
+    token = strtok(NULL, " \t\n");  // Data
+    int data = 0;
+    if (token) {
+        data = (token[0] == '0' && token[1] == 'x') ? strtol(token, NULL, 16) : atoi(token);
+    }
 
-    // Debugging output
-    printf("Address: %d, Value: %d written to data_memory\n", address, value);
+    if (address >= 0 && address < DATA_SIZE) {
+        data_memory[address] = data;
+        if (data != 0 && address > highest_address) {
+            highest_address = address;  // Update highest address with non-zero value
+        }
+    } else {
+        printf("Error: Address out of range (%d)\n", address);
+        exit(1);
+    }
 }
 
 
@@ -126,13 +119,13 @@ void first_pass(FILE* input) {
 
     while (fgets(line, sizeof(line), input)) {
         char line_copy[MAX_LINE_LENGTH];
-        strcpy(line_copy, line); // Make a copy of the line
+        strcpy(line_copy, line);  // Make a copy of the line
 
         char* token = strtok(line, " \t\n");
         if (token == NULL || token[0] == '#') continue;
 
         if (strcmp(token, ".word") == 0) {
-            handle_data_directive(line_copy); // Use the copy for .word processing
+            handle_data_directive(line_copy);  // Use the copy for .word processing
         } else if (token[strlen(token) - 1] == ':') {
             token[strlen(token) - 1] = '\0';
             add_label(token, current_address);
@@ -142,10 +135,10 @@ void first_pass(FILE* input) {
     }
 }
 
+
 void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
     char line[MAX_LINE_LENGTH];
     char instruction[13];
-    rewind(input);
     rewind(input);
 
     while (fgets(line, sizeof(line), input)) {
@@ -173,7 +166,7 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
         token = strtok(NULL, ", \t\n");
         if (token) {
             if (isdigit(token[0]) || token[0] == '-') {
-                imm1 = atoi(token);  // Parse integer immediate
+                imm1 = atoi(token);
             } else {
                 int label_address = get_label_address(token);
                 if (label_address == -1) {
@@ -183,10 +176,11 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
                 imm1 = label_address;
             }
         }
+
         token = strtok(NULL, ", \t\n");
         if (token) {
             if (isdigit(token[0]) || token[0] == '-') {
-                imm2 = atoi(token);  // Parse integer immediate
+                imm2 = atoi(token);
             } else {
                 int label_address = get_label_address(token);
                 if (label_address == -1) {
@@ -197,18 +191,17 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
             }
         }
 
-
         sprintf(instruction, "%02X%01X%01X%01X%01X%03X%03X", 
                 opcode, rd, rs, rt, rm, imm1 & 0xFFF, imm2 & 0xFFF);
         fprintf(imemin, "%s\n", instruction);
     }
 
-    for (int i = 0; i < data_count; i++) {
-        printf("data_memory[%i] = %s", i, data_memory[i]);
+    // Write to dmemin up to highest_address
+    for (int i = 0; i <= highest_address; i++) {
         fprintf(dmemin, "%08X\n", data_memory[i]);
-        
     }
 }
+
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
