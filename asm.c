@@ -135,7 +135,6 @@ void first_pass(FILE* input) {
         } else if (token[strlen(token) - 1] == ':') {
             token[strlen(token) - 1] = '\0';// Remove colon from label
             add_label(token, current_address);// Add label with its address
-            printf("Label: %s at address %d\n", token, current_address);
         } else {
             current_address++; // Increment address for each instruction
         }
