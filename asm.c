@@ -126,14 +126,12 @@ void first_pass(FILE* input) {
     while (fgets(line, sizeof(line), input)) {
         char line_copy[MAX_LINE_LENGTH];
         strcpy(line_copy, line);  // Make a copy of the line
-        strcpy(line_copy, line);  // why 2?
 
         char* token = strtok(line, " \t\n");
         if (token == NULL || token[0] == '#') continue;// Ignore comments and empty lines
 
         if (strcmp(token, ".word") == 0) {
-            handle_data_directive(line_copy);  // Use the copy for .word processing// Process .word directive
-            handle_data_directive(line_copy);  // Use the copy for .word processing why 2? 
+            handle_data_directive(line_copy);  // Use the copy for .word processing// Process .word directive 
         } else if (token[strlen(token) - 1] == ':') {
             token[strlen(token) - 1] = '\0';// Remove colon from label
             add_label(token, current_address);// Add label with its address
