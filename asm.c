@@ -135,6 +135,7 @@ void first_pass(FILE* input) {
         } else if (token[strlen(token) - 1] == ':') {
             token[strlen(token) - 1] = '\0';// Remove colon from label
             add_label(token, current_address);// Add label with its address
+            printf("Label: %s at address %d\n", token, current_address);
         } else {
             current_address++; // Increment address for each instruction
         }
@@ -174,7 +175,6 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
         if (token) {
             if (isdigit(token[0]) || token[0] == '-') {
                 imm1 = atoi(token);// Immediate value 1
-                imm1 = atoi(token);// why 2?
             } else {
                 int label_address = get_label_address(token);// Get address of label?
                 if (label_address == -1) {
@@ -189,7 +189,6 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
         if (token) {
             if (isdigit(token[0]) || token[0] == '-') {
                 imm2 = atoi(token);// Immediate value 2
-                imm2 = atoi(token);// why 2?
             } else {
                 int label_address = get_label_address(token);
                 if (label_address == -1) {
