@@ -1,46 +1,57 @@
-	out $zero, $zero, $imm2, $imm1, 1, 2		# enable irq2
-	sll $sp, $imm1, $imm2, $zero, 1, 11		# set $sp = 1 << 11 = 2048
-	out $zero, $imm1, $zero, $imm2, 6, L3		# set irqhandler as L3
-	lw $a0, $zero, $imm2, $zero, 0, 64		# get x from address 64
-	jal $ra, $zero, $zero, $imm2, 0, fib		# calc $v0 = fib(x)
-	sw $zero, $zero, $imm2, $v0, 0, 65		# store fib(x) in 65
-	halt $zero, $zero, $zero, $zero, 0, 0		# halt
-fib:
-	add $sp, $sp, $imm2, $zero, 0, -3		# adjust stack for 3 items
-	sw $zero, $sp, $imm2, $s0, 0, 2			# save $s0
-	sw $zero, $sp, $imm2, $ra, 0, 1			# save return address
-	sw $zero, $sp, $imm2, $a0, 0, 0			# save argument
-	bgt $zero, $a0, $imm1, $imm2, 1, L1		# jump to L1 if x > 1
-	add $v0, $a0, $zero, $zero, 0, 0		# otherwise, fib(x) = x, copy input
-	beq $zero, $zero, $zero, $imm2, 0, L2		# jump to L2
-L1:
-	sub $a0, $a0, $imm2, $zero, 0, 1		# calculate x - 1
-	jal $ra, $zero, $zero, $imm2, 0, fib		# calc $v0=fib(x-1)
-	add $s0, $v0, $imm2, $zero, 0, 0		# $s0 = fib(x-1)
-	lw $a0, $sp, $imm2, $zero, 0, 0			# restore $a0 = x
-	sub $a0, $a0, $imm2, $zero, 0, 2		# calculate x - 2
-	jal $ra, $zero, $zero, $imm2, 0, fib		# calc fib(x-2)
-	add $v0, $v0, $s0, $zero, 0, 0			# $v0 = fib(x-2) + fib(x-1)
-	lw $a0, $sp, $imm2, $zero, 0, 0			# restore $a0
-	lw $ra, $sp, $imm2, $zero, 0, 1			# restore $ra
-	lw $s0, $sp, $imm2, $zero, 0, 2			# restore $s0
-L2:
-	add $sp, $sp, $imm2, $zero, 0, 3		# pop 3 items from stack
-	add $t0, $a0, $zero, $zero, 0, 0		# $t0 = $a0
-	sll $t0, $t0, $imm2, $zero, 0, 16		# $t0 = $t0 << 16
-	add $t0, $t0, $v0, $zero, 0, 0			# $t0 = $t0 + $v0
-	out $zero, $zero, $imm2, $t0, 0, 10		# write $t0 to display
-	beq $zero, $zero, $zero, $ra, 0, 0		# and return
-L3:
-	in $t1, $zero, $imm2, $zero, 0, 9		# read leds register into $t1
-	sll $t1, $t1, $imm2, $zero, 0, 1		# left shift led pattern to the left
-	or $t1, $t1, $imm2, $zero, 0, 1			# lit up the rightmost led
-	out $zero, $zero, $imm2, $t1, 0, 9		# write the new led pattern
-	out $zero, $zero, $imm2, $imm1, 255, 21		# set pixel color to white
-	out $zero, $zero, $imm2, $imm1, 1, 22		# draw pixel
-	in $t1, $zero, $imm2, $zero, 0, 20		# read pixel address
-	add $t1, $t1, $imm2, $zero, 0, 257		# $t1 += 257
-	out $zero, $zero, $imm2, $t1, 0, 20		# update address
-	out $zero, $zero, $imm2, $zero, 0, 5		# clear irq2 status
-	reti $zero, $zero, $zero, $zero, 0, 0		# return from interrupt
-	.word 0x40 0x7
+# Matrix multiplication of two 4x4 matrices
+# Matrix A: 0x100 to 0x10F
+# Matrix B: 0x110 to 0x11F
+# Result Matrix C: 0x120 to 0x12F
+# Base addresses
+add $s0, $zero, $imm1, $zero, 0x100, 0  # Matrix A
+add $s1, $zero, $imm1, $zero, 0x110, 0  # Matrix B
+add $s2, $zero, $imm1, $zero, 0x120, 0  # Result Matrix C
+
+# Loop through rows of A
+add $t0, $zero, $zero, $zero, 0, 0  # Row index i
+loop_i:
+    beq $t0, $imm1, $zero, $imm1, end, 4  # If i == 4, end
+
+    # Loop through columns of B
+    add $t1, $zero, $zero, $zero, 0, 0  # Column index j
+    loop_j:
+        beq $t1, $imm1, $zero, $imm1, next_i, 4  # If j == 4, next row
+
+        # Calculate dot product for C[i][j]
+        add $t2, $zero, $zero, $zero, 0, 0  # Sum
+        add $t3, $zero, $zero, $zero, 0, 0  # Index k
+        loop_k:
+            beq $t3, $imm1, $zero, $imm1, store, 4  # If k == 4, store result
+
+            # Load A[i][k] and B[k][j]
+            add $a0, $s0, $t0, $t3, 0, 0
+            lw $a0, $a0, 0
+            add $a1, $s1, $t3, $t1, 0, 0
+            lw $a1, $a1, 0
+
+            # Multiply and accumulate
+            mac $t2, $a0, $a1, $t2
+
+            # Increment k
+            add $t3, $t3, $imm1, $zero, 1, 0
+            beq $zero, $zero, $zero, $imm1, loop_k, 0
+
+        store:
+        # Store result in C[i][j]
+        add $a0, $s2, $t0, $t1, 0, 0
+        sw $a0, $t2, 0
+
+        # Increment j
+        add $t1, $t1, $imm1, $zero, 1, 0
+        beq $zero, $zero, $zero, $imm1, loop_j, 0
+
+    next_i:
+    # Increment i
+    add $t0, $t0, $imm1, $zero, 1, 0
+    beq $zero, $zero, $zero, $imm1, loop_i, 0
+
+end:
+halt $zero, $zero, $zero, $zero, 0, 0
+	
+	
+	
