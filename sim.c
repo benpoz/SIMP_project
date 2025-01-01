@@ -6,20 +6,19 @@
 #define MEMORY_SIZE 4096        // Maximum number of lines in the memory
 #define LINE_LENGTH 14          // Each line can hold 12 characters + 2 for newline
 #define DISK_SIZE 16384           // Number of bytes in the disk
-#define SECTOR_SIZE 514         // Each line can hold 512 bytes + 2 for newline
 #define MAX_CYCLES (1024*4096)  // Maximum possible cycles needed to execute a program
 
 // create program counter & clock
-unsigned int CLK = 1;
+unsigned int CLK = 1; 
 unsigned int PC = 0;
 
 // create registers
 int registers[16] = {0}; // set all to zero
 
 // create IOregisters
-int IOregisters[22] = {0};
+int IOregisters[23] = {0};
 unsigned char monitor[256][256] = {0}; // unsigned char <- every pixel value is a byte
-char IOregisters_names[22][12] = {
+char IOregisters_names[23][12] = {
     "irq0enable",
     "irq1enable",
     "irq2enable",
@@ -44,7 +43,7 @@ char IOregisters_names[22][12] = {
     "monitordata",
     "monitorcmd"
 };
-int DMA[128];
+// disk operation counter
 int disk_timer = 0;
 int disk_timer_enable = 0;
 // define instruction structure
@@ -344,13 +343,13 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
                         if (IOregisters[14] == 1) { // read from disk
                             disk_timer_enable = 1; // start counting disk operation time
                             for (int i = 0; i < 128; i++) {
-                                data_memory[buffer + i] = disk_in[128*sector + i];
+                                data_memory[buffer + i] = disk_in[128*sector + i]; // this is the DMA
                             }
                         }
                         else if (IOregisters[14] == 2) { // write to disk
                             disk_timer_enable = 1; // start counting disk operation time
                             for (int i = 0; i < 128; i++) {
-                                disk_in[128*sector + i] = data_memory[buffer + i];
+                                disk_in[128*sector + i] = data_memory[buffer + i]; // this is the DMA
                             }
                         }
                     }
