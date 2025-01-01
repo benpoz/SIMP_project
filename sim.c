@@ -101,22 +101,7 @@ int main(int argc, char *argv[]) {
     //execution loop
     while (1) { // need to check relative timing of each interrupt/timer
         
-        // int irq = (IOregisters[0] & IOregisters[3]) 
-        //         | (IOregisters[1] & IOregisters[4]) 
-        //         | (IOregisters[2] & IOregisters[5]);
-        
-        // if (irq & (IOregisters[7] != PC)) { //check not nested interrupts
-        //     IOregisters[7] = PC;
-        //     PC = IOregisters[6];
-        // }
-        // if (IOregisters[11]) { //timer //incr timer after execute of before?
-        //     IOregisters[0] = 1;
-        //     if (IOregisters[12] == IOregisters[13]) {
-        //         IOregisters[3] = 1;
-        //         IOregisters[12] = -1; // will reset to 0 next line
-        //     }
-        //     IOregisters[12]++;    
-        // }
+        // interruption logic missing
 
         struct instruction *current_instruction = malloc(sizeof(struct instruction));
         decode_instruction(instruction_memory[PC], current_instruction);
@@ -160,7 +145,6 @@ int main(int argc, char *argv[]) {
     for (int i = 3; i < 16; i++) {
         fprintf(reg_out, "%08X\n", registers[i]);
     }
-    
 
     //monitors
     for (int i = 0; i < 256; i++) {
@@ -314,6 +298,10 @@ int execute(struct instruction *ins, long long int *data_memory, FILE* hwtrace, 
             int inreg = registers[ins->Rs] + registers[ins->Rt];
             registers[ins->Rd] = IOregisters[inreg];
             
+            //?
+            if (inreg == 22) {IOregisters[inreg] = 0;} // if monitorcmd is read change it to zero?
+            //?
+            
             // what about disk?
 
             // print read command to files
@@ -322,6 +310,13 @@ int execute(struct instruction *ins, long long int *data_memory, FILE* hwtrace, 
         case 20: // out
             int outreg = registers[ins->Rs] + registers[ins->Rt];
             IOregisters[outreg] = registers[ins->Rm];
+            
+            if(outreg == 22 && IOregisters[22]) { // if monitorcmd is on update pixel
+                int line = (IOregisters[20] >> 8) & 0xff; // bits 8-15 contains monitor line
+                int column = IOregisters[20] & 0xff; // bits 0-7 contains monitor column
+                monitor[line][column] = IOregisters[21]; // update correct pixel with monitordata
+            }
+            
             // print write command to files
             fprintf(hwtrace, "%d WRITE %s %08X\n", CLK, IOregisters_names[outreg], registers[ins->Rm]);
             if (outreg == 9) {
