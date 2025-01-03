@@ -4,10 +4,12 @@
 # Result Matrix C: 0x120 to 0x12F
 # Base addresses
 
+
+#set matrices values
 .word 0x100 1
-.word 0x101 1
-.word 0x102 1
-.word 0x103 1
+.word 0x101 2
+.word 0x102 3
+.word 0x103 4
 .word 0x104 1
 .word 0x105 1
 .word 0x106 1
@@ -21,9 +23,9 @@
 .word 0x10E 1
 .word 0x10F 1
 .word 0x110 1
-.word 0x111 1
-.word 0x112 1
-.word 0x113 1
+.word 0x111 2
+.word 0x112 3
+.word 0x113 4
 .word 0x114 1
 .word 0x115 1
 .word 0x116 1
@@ -72,9 +74,9 @@ loop_i:
             beq $zero, $imm2, $t2, $imm1, store, 4  # If k == 4, store result
 
             # Load A[i][k] and B[k][j]
-            mac $a0 , $t0, $imm1, $t2 ,4,0  # $t0 = offset for A[i][k]
+            mac $a0 , $t0, $imm1, $t2 ,4,0  #$a0 = offset for A[i][k] 
             lw $a0,$s0,$a0,$zero, 0, 0        #$a0 = A[i][k]
-            mac $a1, $t2, $imm1, $t1, 4, 0  #$t1 = offset for B[k][j]
+            mac $a1, $t2, $imm1, $t1, 4, 0  #$a1 = offset for B[k][j]
             lw $a1, $s1, $a1, $zero, 0, 0     #$a1 = B[k][j]
 
             # Multiply and accumulate

@@ -286,22 +286,22 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             registers[ins->Rd] = (int)((unsigned int)registers[ins->Rs] >> registers[ins->Rt]);
             break;
         case 9: // beq
-            if (registers[ins->Rs] == registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
+            if (registers[ins->Rs] == registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1;
             break;
         case 10: // bne
-            if (registers[ins->Rs] != registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
+            if (registers[ins->Rs] != registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1;
             break;
         case 11: // blt
-            if (registers[ins->Rs] < registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
+            if (registers[ins->Rs] < registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1;
             break;
         case 12: // bgt
-            if (registers[ins->Rs] > registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
+            if (registers[ins->Rs] > registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1;
             break;
         case 13: // ble
-            if (registers[ins->Rs] <= registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
+            if (registers[ins->Rs] <= registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1;
             break;
         case 14: // bge
-            if (registers[ins->Rs] >= registers[ins->Rd]) PC = registers[ins->Rm] & 0xfff;
+            if (registers[ins->Rs] >= registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1;
             break;
         case 15: // jal
             PC = registers[ins->Rm & 0xfff];
