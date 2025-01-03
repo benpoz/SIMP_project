@@ -173,7 +173,7 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
         token = strtok(NULL, ", \t\n");
         if (token) {
             if (isdigit(token[0]) || token[0] == '-') {
-                imm1 = atoi(token);// Immediate value 1
+                imm1 = (token[0] == '0' && token[1] == 'x') ? strtol(token, NULL, 16) : atoi(token);// Immediate value 1
             } else {
                 int label_address = get_label_address(token);// Get address of label?
                 if (label_address == -1) {
@@ -187,7 +187,7 @@ void second_pass(FILE* input, FILE* imemin, FILE* dmemin) {
         token = strtok(NULL, ", \t\n");
         if (token) {
             if (isdigit(token[0]) || token[0] == '-') {
-                imm2 = atoi(token);// Immediate value 2
+                imm2 = (token[0] == '0' && token[1] == 'x') ? strtol(token, NULL, 16) : atoi(token);// Immediate value 2
             } else {
                 int label_address = get_label_address(token);
                 if (label_address == -1) {
