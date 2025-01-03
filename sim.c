@@ -304,8 +304,8 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             if (registers[ins->Rs] >= registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1; // -1 to negate PC++ at end of loop
             break;
         case 15: // jal
-            PC = registers[ins->Rm & 0xfff]- 1; // -1 to negate PC++ at end of loop
-            registers[ins->Rd] = PC + 2;
+            registers[ins->Rd] = PC + 1;
+            PC = registers[(ins->Rm & 0xfff)]- 1; // -1 to negate PC++ at end of loop
             break;
         case 16: // lw
             registers[ins->Rd] = data_memory[registers[ins->Rs] + registers[ins->Rt]] + registers[ins->Rm];
