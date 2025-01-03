@@ -322,8 +322,6 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             //?
             if (inreg == 22) {IOregisters[inreg] = 0;} // if monitorcmd is read change it to zero?
             //?
-            
-            // what about disk?
 
             // print read command to files
             fprintf(hwtrace, "%d READ %s %08X\n", CLK, IOregisters_names[inreg], registers[ins->Rd]);
