@@ -4,14 +4,16 @@
 # Result Matrix C: 0x120 to 0x12F
 # Base addresses
 
+#####
 # Enable interrupts
 out $zero, $zero, $imm2, $imm1, 1, 0  # Enable irq0
 out $zero, $zero, $imm2, $imm1, 1, 1  # Enable irq1
-out $zero, $zero, $imm2, $imm1, 1, 2  # Enable irq2
+#out $zero, $zero, $imm2, $imm1, 1, 2  # Enable irq2
 
 # Set interrupt handler
 sll $sp, $imm1, $imm2, $zero, 1, 11  # Set $sp=1<<11=2048
 out $zero, $imm1, $zero, $imm2, 6, irq_handler
+#####
 
 # Base addresses
 add $s0, $zero, $imm1, $zero, 0x100, 0  # Matrix A
@@ -64,6 +66,7 @@ loop_i:
 end:
 halt $zero, $zero, $zero, $zero, 0, 0
 
+#####
 irq_handler:
     # Handle interrupts
     in $t1, $zero, $imm2, $zero, 0, 3  # Read irq0status
@@ -76,3 +79,4 @@ irq_handler:
     out $zero, $zero, $imm2, $zero, 0, 5
 
     reti $zero, $zero, $zero, $zero, 0, 0
+#####
