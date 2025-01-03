@@ -1,6 +1,5 @@
 # Draw a circle on the screen
 # Radius: 0x100
-
 # Enable interrupts
 out $zero, $zero, $imm2, $imm1, 1, 0  # Enable irq0
 out $zero, $zero, $imm2, $imm1, 1, 1  # Enable irq1
@@ -14,8 +13,8 @@ out $zero, $imm1, $zero, $imm2, 6, irq_handler
 lw $a0, $zero, 0x100  # Load radius
 
 # Calculate center of the screen
-li $t0, 128  # Center x
-li $t1, 128  # Center y
+add $t0, $zero, $imm1, $zero, 128, 0  # Center x
+add $t1, $zero, $imm1, $zero, 128, 0  # Center y
 
 # Initialize drawing variables
 add $t2, $zero, $zero, $zero, $a0, 0  # x = radius
