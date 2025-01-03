@@ -37,8 +37,8 @@ loop_i:
             beq $t3, $imm1, $zero, $imm1, store, 4  # If k == 4, store result
 
             # Load A[i][k] and B[k][j]
-            add $a0, $s0, $t0, $t3, 0, 0
-            lw $a0, $a0, 0
+            mac $t0 , $t0, $imm1, $t3 ,4,0  # $t0 = offset for A[i][k]
+            lw $a0,$s0,$t0,$zero,0,0 #  $a0 = A[i][k]
             add $a1, $s1, $t3, $t1, 0, 0
             lw $a1, $a1, 0
 
