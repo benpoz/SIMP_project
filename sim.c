@@ -82,7 +82,8 @@ int main(int argc, char *argv[]) {
     
     //inputs
     long long int* instruction_memory = createLongArrayFromFile(argv[1], MEMORY_SIZE, LINE_LENGTH, 48);
-    int instruction_count = countLinesToPrint(instruction_memory, MEMORY_SIZE); // we're not printing the i.m, just need the line count
+    // get the line count so PC doesn't overflow
+    int instruction_count = countLinesToPrint(instruction_memory, MEMORY_SIZE);     
     long long int* data_memory = createLongArrayFromFile(argv[2], MEMORY_SIZE, LINE_LENGTH, 32);
     long long int* disk_in = createLongArrayFromFile(argv[3], DISK_SIZE, LINE_LENGTH, 32);
     //interrupt2
@@ -102,7 +103,7 @@ int main(int argc, char *argv[]) {
     FILE* monitor_yuv = fopen(argv[14], "w");
     
     //execution loop
-    while (1) { // need to check relative timing of each interrupt/timer
+    while (1) { //TODO need to check relative timing of each interrupt/timer
         
         // exit if PC reached the end of imemin
         if (PC >= instruction_count) {
@@ -118,9 +119,9 @@ int main(int argc, char *argv[]) {
             IOregisters[17] = 0;
             IOregisters[4] = 1;
         }
-        // rest of interruption logic missing
+        //! rest of interruption logic missing
         
-        // prepare instruction for execution
+        //prepare instruction for execution
         struct instruction *current_instruction = malloc(sizeof(struct instruction));
         decode_instruction(instruction_memory[PC], current_instruction);
         setImmediates(current_instruction);
@@ -134,7 +135,7 @@ int main(int argc, char *argv[]) {
         //execute
         int halt = execute(current_instruction, data_memory, disk_in, hwregtrace, leds, disp7seg); 
         
-        //stuff to write after execution:
+        //TODO stuff to write after execution:
 
         //finish 
         if (halt) {
@@ -320,7 +321,7 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             registers[ins->Rd] = IOregisters[inreg];
             
             //?
-            if (inreg == 22) {IOregisters[inreg] = 0;} // if monitorcmd is read change it to zero?
+            if (inreg == 22) {IOregisters[inreg] = 0;} //! if monitorcmd is read change it to zero?
             //?
 
             // print read command to files
@@ -363,7 +364,7 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
                     }
                     break;
                 case 22:
-                    // how do you set monitorcmd??
+                    // !how do you set monitorcmd??
                     if(IOregisters[22]) { // if monitorcmd is on update pixel
                         int line = (IOregisters[20] >> 8) & 0xff; // bits 8-15 contains monitor line
                         int column = IOregisters[20] & 0xff; // bits 0-7 contains monitor column
@@ -413,7 +414,7 @@ long long int* createLongArrayFromFile(char* input_file_name, int max_lines, int
     }
 
     for (int i = line_count; i < max_lines; i++) { 
-        arr[i] = 0; // ped zeros to fill 4096 lines
+        arr[i] = 0; // pad zeros to fill max lines
     }
 
     return arr;
