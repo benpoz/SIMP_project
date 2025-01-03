@@ -28,31 +28,31 @@ loop_i:
     # Loop through columns of B
     add $t1, $zero, $zero, $zero, 0, 0  # Column index j
     loop_j:
-        beq $zero, $imm2, $t2, $imm1, next_i, 4  # If j == 4, next row
+        beq $zero, $imm2, $t1, $imm1, next_i, 4  # If j == 4, next row
 
         # Calculate dot product for C[i][j]
-        add $t2, $zero, $zero, $zero, 0, 0  # Sum
-        add $t3, $zero, $zero, $zero, 0, 0  # Index k
+        add $v0, $zero, $zero, $zero, 0, 0  # Sum
+        add $t2, $zero, $zero, $zero, 0, 0  # Index k
         loop_k:
-            beq $zero, $imm2, $t3, $imm1, store, 4  # If k == 4, store result
+            beq $zero, $imm2, $t2, $imm1, store, 4  # If k == 4, store result
 
             # Load A[i][k] and B[k][j]
-            mac $t0 , $t0, $imm1, $t3 ,4,0  # $t0 = offset for A[i][k]
-            lw $a0,$s0,$t0,$zero,0,0        #$a0 = A[i][k]
-            mac $t1, $t1, $imm1, $t3,4, 0  # $t1 = offset for B[k][j]
-            lw $a1, $s1, $t1,$zero,0,0     #$a1 = B[k][j]
+            mac $a0 , $t0, $imm1, $t2 ,4,0  # $t0 = offset for A[i][k]
+            lw $a0,$s0,$a0,$zero, 0, 0        #$a0 = A[i][k]
+            mac $a1, $t2, $imm1, $t1, 4, 0  #$t1 = offset for B[k][j]
+            lw $a1, $s1, $a1, $zero, 0, 0     #$a1 = B[k][j]
 
             # Multiply and accumulate
-            mac $t2, $a0, $a1, $t2
+            mac $v0, $a0, $a1, $v0, 0, 0
 
             # Increment k
-            add $t3, $t3, $imm1, $zero, 1, 0
+            add $t2, $t2, $imm1, $zero, 1, 0
             beq $zero, $zero, $zero, $imm1, loop_k, 0
 
         store:
         # Store result in C[i][j]
-        add $a0, $s2, $t0, $t1, 0, 0
-        sw $zero, $a0, $zero, $t2, 0, 0
+        mac $a0, $t0, $imm1, $t1, 4, 0 #offset for C matrix 
+        sw $zero, $a0, $s2, $v0, 0, 0
 
         # Increment j
         add $t1, $t1, $imm1, $zero, 1, 0
