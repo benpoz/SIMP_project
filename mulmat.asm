@@ -38,9 +38,9 @@ loop_i:
 
             # Load A[i][k] and B[k][j]
             mac $t0 , $t0, $imm1, $t3 ,4,0  # $t0 = offset for A[i][k]
-            lw $a0,$s0,$t0,$zero,0,0 #  $a0 = A[i][k]
-            add $a1, $s1, $t3, $t1, 0, 0
-            lw $a1, $a1, 0
+            lw $a0,$s0,$t0,$zero,0,0        #$a0 = A[i][k]
+            mac $t1, $t1, $imm1, $t3,4, 0  # $t1 = offset for B[k][j]
+            lw $a1, $s1, $t1,$zero,0,0     #$a1 = B[k][j]
 
             # Multiply and accumulate
             mac $t2, $a0, $a1, $t2
