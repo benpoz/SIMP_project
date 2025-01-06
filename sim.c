@@ -375,13 +375,6 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
                     IOregisters[outreg] = registers[ins->Rm];
                     break;
                 } break;
-
-            
-            if(IOregisters[22]) { // if monitorcmd is on update pixel
-                int line = (IOregisters[20] >> 8) & 0xff; // bits 8-15 contains monitor line
-                int column = IOregisters[20] & 0xff; // bits 0-7 contains monitor column
-                monitor[line][column] = IOregisters[21]; // update correct pixel with monitordata
-            }
             
             // print write command to files
             fprintf(hwtrace, "%d WRITE %s %08X\n", CLK, IOregisters_names[outreg], registers[ins->Rm]);
