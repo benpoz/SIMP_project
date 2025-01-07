@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     FILE* monitor_yuv = fopen(argv[14], "w");
     
     //execution loop
-    while (1) { //TODO need to check relative timing of each interrupt/timer
+    while (1) { 
         
         // exit if PC reached the end of imemin
         if (PC >= instruction_count) {
@@ -116,28 +116,34 @@ int main(int argc, char *argv[]) {
             printf("Out of instrucions after %d cycles\n", CLK - 1);
             break;
         }
-        
-        // if disk finished (if busy) reset timer and set irq1
+        // check for irq0
+        if (IOregisters[12] == IOregisters[13]) { // check if timercurrent == timermax
+            IOregisters[12] = 0;
+            IOregisters[3] = 1;
+        } 
+        // check for irq1
         if (disk_timer == 1024 && disk_timer_enable) {
             disk_timer = 0;
             disk_timer_enable = 0;
             IOregisters[17] = 0;
             IOregisters[4] = 1; // turn on irqstatus1
         }
-        if(CLK == *next_irq2) { //check for irq2
+        //check for irq2
+        if(CLK == *next_irq2) { 
             IOregisters[5] = 1;  // turn on irqstatus2
             next_irq2 += 1; // load next irq2 cycle
         } else {
             IOregisters[5] = 0; // reset irq2 if needed
         }
+        
         int irq = (IOregisters[0] & IOregisters[3]) | (IOregisters[1] & IOregisters[4]) | (IOregisters[2] & IOregisters[5]);
+        
         // check interrupts (unless already in ISR)
         if (irq & !ISR) {
             ISR = 1;
             IOregisters[7] = PC; // update irqreturn
             PC = IOregisters[6]; // jump to irqhandler    
         }
-        //! how to turn off irqstatuses
         
         //prepare instruction for execution
         struct instruction *current_instruction = malloc(sizeof(struct instruction));
@@ -150,22 +156,14 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < 15; i++) {fprintf(trace, "%08X ", registers[i]);}
         fprintf(trace, "%08X\n", registers[15]); //new line after printing everything
         
-        //execute
+        //execute line
         int halt = execute(current_instruction, data_memory, disk_in, hwregtrace, leds, disp7seg); 
         
-        //TODO stuff to write after execution:
         //increment timers 
         //!before or after execution?
         if (disk_timer_enable) {disk_timer++;} 
-        if (IOregisters[11]) { //timerenable
-            IOregisters[0] = 1; //! timerenable sets irq0enable?
-            if (IOregisters[12] == IOregisters[13]) { // check if timercurrent = timermax
-                IOregisters[3] = 1;
-                IOregisters[12] = 0;
-            } else {
-                IOregisters[12]++;
-            }
-        }
+        if (IOregisters[11]) {IOregisters[12]++;}
+        
         //finish 
         if (halt) {
             fprintf(cycles, "%d", CLK); //write cycle number to file
@@ -173,7 +171,7 @@ int main(int argc, char *argv[]) {
             break;
         }
         if (!branch) {
-            PC++; // don't increment PC after branch/jal
+            PC++; // don't increment PC when branching/jaling
         }
         branch = 0;
         CLK++;
@@ -316,28 +314,45 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             registers[ins->Rd] = (int)((unsigned int)registers[ins->Rs] >> registers[ins->Rt]);
             break;
         case 9: // beq
-            branch = 1;
-            if (registers[ins->Rs] == registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
+            if (registers[ins->Rs] == registers[ins->Rt]) {
+                PC = (registers[ins->Rm] & 0xfff);
+                branch = 1;
+            }
             break;
         case 10: // bne
             branch = 1;
-            if (registers[ins->Rs] != registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
+            if (registers[ins->Rs] != registers[ins->Rt]) {
+                PC = (registers[ins->Rm] & 0xfff);
+                branch = 1;
+            }
             break;
         case 11: // blt
             branch = 1;
-            if (registers[ins->Rs] < registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
+            if (registers[ins->Rs] < registers[ins->Rt]) {
+                PC = (registers[ins->Rm] & 0xfff);
+                branch = 1;
+            }
             break;
         case 12: // bgt
             branch = 1;
-            if (registers[ins->Rs] > registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
+            if (registers[ins->Rs] > registers[ins->Rt]) {
+                PC = (registers[ins->Rm] & 0xfff);
+                branch = 1;
+            }
             break;
         case 13: // ble
             branch = 1;
-            if (registers[ins->Rs] <= registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
+            if (registers[ins->Rs] <= registers[ins->Rt]) {
+                PC = (registers[ins->Rm] & 0xfff);
+                branch = 1;
+            }
             break;
         case 14: // bge
             branch = 1;
-            if (registers[ins->Rs] >= registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
+            if (registers[ins->Rs] >= registers[ins->Rt]) {
+                PC = (registers[ins->Rm] & 0xfff);
+                branch = 1;
+            }
             break;
         case 15: // jal
             branch = 1;
@@ -362,13 +377,11 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             //?
             if (inreg == 22) {IOregisters[inreg] = 0;} //! if monitorcmd is read change it to zero?
             //?
-
             // print read command to files
             fprintf(hwtrace, "%d READ %s %08X\n", CLK, IOregisters_names[inreg], registers[ins->Rd]);
             break;
         case 20: // out
             int outreg = registers[ins->Rs] + registers[ins->Rt];
-
             switch (outreg)
                 {
                 case 14: // operate disk
@@ -392,12 +405,12 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
                         }
                     }
                     break;
-                case 15: // update disk sector
+                case 15: // check for disk readiness before updating disk sector
                     if (!IOregisters[17]) {
                         IOregisters[outreg] = registers[ins->Rm];
                     }
                     break;
-                case 16: // update disk buffer
+                case 16: // check for disk readiness before updating disk buffer
                     if (!IOregisters[17]) {
                         IOregisters[outreg] = registers[ins->Rm];
                     }
@@ -430,7 +443,7 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             break;
     }
     return 0;
-} // define operation by opcode
+} 
 
 long long int* createLongArrayFromFile(char* input_file_name, int max_lines, int max_line_length, int bits) {
     char* file_text[max_lines];
