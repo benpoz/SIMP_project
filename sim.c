@@ -157,7 +157,8 @@ int main(int argc, char *argv[]) {
         //increment timers 
         //!before or after execution?
         if (disk_timer_enable) {disk_timer++;} 
-        if (IOregisters[11]) {
+        if (IOregisters[11]) { //timerenable
+            IOregisters[0] = 1; //! timerenable sets irq0enable?
             if (IOregisters[12] == IOregisters[13]) { // check if timercurrent = timermax
                 IOregisters[3] = 1;
                 IOregisters[12] = 0;
