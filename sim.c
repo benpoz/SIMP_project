@@ -9,7 +9,7 @@
 #define MAX_CYCLES (1024*4096)  // Maximum possible cycles needed to execute a program
 
 // create program counter & clock
-unsigned int CLK = 1; 
+unsigned int CLK = 0; 
 unsigned int PC = 0;
 
 
@@ -116,6 +116,32 @@ int main(int argc, char *argv[]) {
             printf("Out of instrucions after %d cycles\n", CLK - 1);
             break;
         }
+        
+        int irq = (IOregisters[0] & IOregisters[3]) | (IOregisters[1] & IOregisters[4]) | (IOregisters[2] & IOregisters[5]);
+        
+        // check interrupts (unless already in ISR)
+        if (irq & !ISR) {
+            ISR = 1;
+            IOregisters[7] = PC; // update irqreturn
+            PC = IOregisters[6]; // jump to irqhandler    
+        }
+        
+        //prepare instruction for execution
+        struct instruction *current_instruction = malloc(sizeof(struct instruction));
+        decode_instruction(instruction_memory[PC], current_instruction);
+        setImmediates(current_instruction);
+        //printf("imm1 is: %d\n", current_instruction->imm1);
+        //printf("imm2 is: %d\n", current_instruction->imm2);
+        free(current_instruction);
+        
+        //add line to trace file  
+        fprintf(trace, "%03X %012llX ", PC, instruction_memory[PC]);
+        for (int i = 0; i < 15; i++) {fprintf(trace, "%08X ", registers[i]);}
+        fprintf(trace, "%08X\n", registers[15]); //new line after printing everything
+        
+        //execute line
+        int halt = execute(current_instruction, data_memory, disk_in, hwregtrace, leds, disp7seg); 
+        
         // check for irq0
         if (IOregisters[12] == IOregisters[13]) { // check if timercurrent == timermax
             IOregisters[12] = 0;
@@ -132,33 +158,10 @@ int main(int argc, char *argv[]) {
         if(CLK == *next_irq2) { 
             IOregisters[5] = 1;  // turn on irqstatus2
             next_irq2 += 1; // load next irq2 cycle
+            printf("irq2 made at clk %d\n", CLK);
         } else {
             IOregisters[5] = 0; // reset irq2 if needed
         }
-        
-        int irq = (IOregisters[0] & IOregisters[3]) | (IOregisters[1] & IOregisters[4]) | (IOregisters[2] & IOregisters[5]);
-        
-        // check interrupts (unless already in ISR)
-        if (irq & !ISR) {
-            ISR = 1;
-            IOregisters[7] = PC; // update irqreturn
-            PC = IOregisters[6]; // jump to irqhandler    
-        }
-        
-        //prepare instruction for execution
-        struct instruction *current_instruction = malloc(sizeof(struct instruction));
-        decode_instruction(instruction_memory[PC], current_instruction);
-        setImmediates(current_instruction);
-        free(current_instruction);
-        
-        //add line to trace file  
-        fprintf(trace, "%03X %012llX ", PC, instruction_memory[PC]);
-        for (int i = 0; i < 15; i++) {fprintf(trace, "%08X ", registers[i]);}
-        fprintf(trace, "%08X\n", registers[15]); //new line after printing everything
-        
-        //execute line
-        int halt = execute(current_instruction, data_memory, disk_in, hwregtrace, leds, disp7seg); 
-        
         //increment timers 
         //!before or after execution?
         if (disk_timer_enable) {disk_timer++;} 
@@ -167,6 +170,7 @@ int main(int argc, char *argv[]) {
         //finish 
         if (halt) {
             fprintf(cycles, "%d", CLK); //write cycle number to file
+            CLK++;
             printf("Halted after %d cycles\n", CLK);
             break;
         }
@@ -274,8 +278,8 @@ void decode_instruction(long long int ins, struct instruction *curr) {
     curr->Rs = (ins >> 32) & 0xf;
     curr->Rt = (ins >> 28) & 0xf;
     curr->Rm = (ins >> 24) & 0xf;
-    curr->imm1 = (ins >> 12) & 0xfff;
-    curr->imm2 = ins & 0xfff;
+    curr->imm1 = ((ins & 0xfff000) << 40) >> 52;
+    curr->imm2 = ((ins & 0xfff) << 52) >> 52;
 }
 
 void setImmediates(struct instruction *ins) {
@@ -320,35 +324,30 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             }
             break;
         case 10: // bne
-            branch = 1;
             if (registers[ins->Rs] != registers[ins->Rt]) {
                 PC = (registers[ins->Rm] & 0xfff);
                 branch = 1;
             }
             break;
         case 11: // blt
-            branch = 1;
             if (registers[ins->Rs] < registers[ins->Rt]) {
                 PC = (registers[ins->Rm] & 0xfff);
                 branch = 1;
             }
             break;
         case 12: // bgt
-            branch = 1;
             if (registers[ins->Rs] > registers[ins->Rt]) {
                 PC = (registers[ins->Rm] & 0xfff);
                 branch = 1;
             }
             break;
         case 13: // ble
-            branch = 1;
             if (registers[ins->Rs] <= registers[ins->Rt]) {
                 PC = (registers[ins->Rm] & 0xfff);
                 branch = 1;
             }
             break;
         case 14: // bge
-            branch = 1;
             if (registers[ins->Rs] >= registers[ins->Rt]) {
                 PC = (registers[ins->Rm] & 0xfff);
                 branch = 1;
@@ -379,6 +378,14 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             int outreg = registers[ins->Rs] + registers[ins->Rt];
             switch (outreg)
                 {
+                case 9:
+                    IOregisters[outreg] = registers[ins->Rm];
+                    fprintf(leds, "%d %08X\n", CLK,  IOregisters[outreg]);
+                    break;
+                case 10:
+                    IOregisters[outreg] = registers[ins->Rm];
+                    fprintf(disp7seg, "%d %08X\n", CLK,  IOregisters[outreg]);
+                    break;
                 case 14: // operate disk
                     if (!IOregisters[17]) { // check disk status before operating
                         IOregisters[17] = 1;
@@ -418,17 +425,10 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
                 default:
                     IOregisters[outreg] = registers[ins->Rm];
                     break;
-                } break;
-            
+                } 
             // print write command to files
             fprintf(hwtrace, "%d WRITE %s %08X\n", CLK, IOregisters_names[outreg], registers[ins->Rm]);
-            if (outreg == 9) {
-                fprintf(leds, "%d %08X", CLK,  IOregisters[outreg]);
-            }
-            if (outreg == 10) {
-                fprintf(disp7seg, "%d %08X", CLK,  IOregisters[outreg]);
-            }
-            // what about disk?
+            // !what about disk?
             break;
         case 21: // halt
             return 1; 
