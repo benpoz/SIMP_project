@@ -12,6 +12,11 @@
 unsigned int CLK = 1; 
 unsigned int PC = 0;
 
+
+// branch/jal & ISR indicators
+int branch = 0;
+int ISR = 0; 
+
 // create registers
 int registers[16] = {0}; // set all to zero
 
@@ -23,23 +28,23 @@ char IOregisters_names[23][12] = {
     "irq1enable",
     "irq2enable",
     "irq0status",
-    "irq1status",
-    "irq2status",
+    "irq1status", 
+    "irq2status", //5
     "irqhandler",
     "irqerturn",
     "clks",
-    "leds",
-    "display7seg",
+    "leds", 
+    "display7seg", //10
     "timerenable",
     "timercurrent",
     "timermax",
     "diskcmd",
-    "disksector",
+    "disksector", //15
     "diskbuffer",
     "diskstatus",
     "reserved1",
-    "reserved2",
-    "monitoraddr",
+    "reserved2", 
+    "monitoraddr", //20
     "monitordata",
     "monitorcmd"
 };
@@ -89,7 +94,7 @@ int main(int argc, char *argv[]) {
     //interrupt2
     int irq2_in[MEMORY_SIZE];
     int times_interrupted = write_integers_into_array(argv[4], irq2_in, MEMORY_SIZE);
-    
+    int* next_irq2 = irq2_in;
     //outputs
     FILE* memory_out = fopen(argv[5], "w");
     FILE* reg_out = fopen(argv[6], "w");
@@ -117,9 +122,22 @@ int main(int argc, char *argv[]) {
             disk_timer = 0;
             disk_timer_enable = 0;
             IOregisters[17] = 0;
-            IOregisters[4] = 1;
+            IOregisters[4] = 1; // turn on irqstatus1
         }
-        //! rest of interruption logic missing
+        if(CLK == *next_irq2) { //check for irq2
+            IOregisters[5] = 1;  // turn on irqstatus2
+            next_irq2 += 1; // load next irq2 cycle
+        } else {
+            IOregisters[5] = 0; // reset irq2 if needed
+        }
+        int irq = (IOregisters[0] & IOregisters[3]) | (IOregisters[1] & IOregisters[4]) | (IOregisters[2] & IOregisters[5]);
+        // check interrupts (unless already in ISR)
+        if (irq & !ISR) {
+            ISR = 1;
+            IOregisters[7] = PC; // update irqreturn
+            PC = IOregisters[6]; // jump to irqhandler    
+        }
+        //! how to turn off irqstatuses
         
         //prepare instruction for execution
         struct instruction *current_instruction = malloc(sizeof(struct instruction));
@@ -136,16 +154,27 @@ int main(int argc, char *argv[]) {
         int halt = execute(current_instruction, data_memory, disk_in, hwregtrace, leds, disp7seg); 
         
         //TODO stuff to write after execution:
-
+        //increment timers 
+        //!before or after execution?
+        if (disk_timer_enable) {disk_timer++;} 
+        if (IOregisters[11]) {
+            if (IOregisters[12] == IOregisters[13]) { // check if timercurrent = timermax
+                IOregisters[3] = 1;
+                IOregisters[12] = 0;
+            } else {
+                IOregisters[12]++;
+            }
+        }
         //finish 
         if (halt) {
             fprintf(cycles, "%d", CLK); //write cycle number to file
             printf("Halted after %d cycles\n", CLK);
             break;
         }
-        if (disk_timer_enable) {disk_timer++;} // increment disk timer when disk is used
-
-        PC++;
+        if (!branch) {
+            PC++; // don't increment PC after branch/jal
+        }
+        branch = 0;
         CLK++;
     }
     
@@ -286,26 +315,33 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             registers[ins->Rd] = (int)((unsigned int)registers[ins->Rs] >> registers[ins->Rt]);
             break;
         case 9: // beq
-            if (registers[ins->Rs] == registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1; // -1 to negate PC++ at end of loop
+            branch = 1;
+            if (registers[ins->Rs] == registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
             break;
         case 10: // bne
-            if (registers[ins->Rs] != registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1;// -1 to negate PC++ at end of loop
+            branch = 1;
+            if (registers[ins->Rs] != registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
             break;
         case 11: // blt
-            if (registers[ins->Rs] < registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1; // -1 to negate PC++ at end of loop
+            branch = 1;
+            if (registers[ins->Rs] < registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
             break;
         case 12: // bgt
-            if (registers[ins->Rs] > registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1; // -1 to negate PC++ at end of loop
+            branch = 1;
+            if (registers[ins->Rs] > registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
             break;
         case 13: // ble
-            if (registers[ins->Rs] <= registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1; // -1 to negate PC++ at end of loop
+            branch = 1;
+            if (registers[ins->Rs] <= registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
             break;
         case 14: // bge
-            if (registers[ins->Rs] >= registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff) - 1; // -1 to negate PC++ at end of loop
+            branch = 1;
+            if (registers[ins->Rs] >= registers[ins->Rt]) PC = (registers[ins->Rm] & 0xfff);
             break;
         case 15: // jal
+            branch = 1;
             registers[ins->Rd] = PC + 1;
-            PC = registers[(ins->Rm & 0xfff)]- 1; // -1 to negate PC++ at end of loop
+            PC = registers[(ins->Rm & 0xfff)];
             break;
         case 16: // lw
             registers[ins->Rd] = data_memory[registers[ins->Rs] + registers[ins->Rt]] + registers[ins->Rm];
@@ -314,6 +350,8 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
             data_memory[registers[ins->Rs] + registers[ins->Rt]] = registers[ins->Rd] + registers[ins->Rm];
             break;
         case 18: // reti
+            ISR = 0;
+            branch = 1; // due to jumping of PC
             PC = IOregisters[7];
             break;
         case 19: // in
