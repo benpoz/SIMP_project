@@ -373,12 +373,7 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
         case 19: // in
             int inreg = registers[ins->Rs] + registers[ins->Rt];
             registers[ins->Rd] = IOregisters[inreg];
-            
-            //?
-            if (inreg == 22) {IOregisters[inreg] = 0;} //! if monitorcmd is read change it to zero?
-            //?
-            // print read command to files
-            fprintf(hwtrace, "%d READ %s %08X\n", CLK, IOregisters_names[inreg], registers[ins->Rd]);
+            fprintf(hwtrace, "%d READ %s %08X\n", CLK, IOregisters_names[inreg], registers[ins->Rd]); // print read command to files
             break;
         case 20: // out
             int outreg = registers[ins->Rs] + registers[ins->Rt];
@@ -415,13 +410,10 @@ int execute(struct instruction *ins, long long int *data_memory, long long int *
                         IOregisters[outreg] = registers[ins->Rm];
                     }
                     break;
-                case 22:
-                    // !how do you set monitorcmd??
-                    if(IOregisters[22]) { // if monitorcmd is on update pixel
-                        int line = (IOregisters[20] >> 8) & 0xff; // bits 8-15 contains monitor line
-                        int column = IOregisters[20] & 0xff; // bits 0-7 contains monitor column
-                        monitor[line][column] = IOregisters[21]; // update correct pixel with monitordata
-                    }
+                case 22: // update pixel
+                    int line = (IOregisters[20] >> 8) & 0xff; // bits 8-15 contains monitor line
+                    int column = IOregisters[20] & 0xff; // bits 0-7 contains monitor column
+                    monitor[line][column] = IOregisters[21]; // update correct pixel with monitordata
                     break;
                 default:
                     IOregisters[outreg] = registers[ins->Rm];
