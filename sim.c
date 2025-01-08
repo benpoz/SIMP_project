@@ -7,6 +7,7 @@
 #define LINE_LENGTH 14          // Each line can hold 12 characters + 2 for newline
 #define DISK_SIZE 16384           // Number of bytes in the disk
 #define MAX_CYCLES (1024*4096)  // Maximum possible cycles needed to execute a program
+#define MONITOR_SIZE (256*256)
 
 // create program counter & clock
 unsigned int CLK = 0; 
@@ -72,7 +73,7 @@ void decode_instruction(long long int ins, struct instruction *curr);
 void setImmediates(struct instruction *ins);
 int execute(struct instruction *ins, long long int *data_memory, long long int *disk_in, FILE* hwtrace, FILE* leds, FILE* disp7seg);
 int countLinesToPrint (long long int *array, int max_size);
-void processOutput(int outreg, struct instruction *ins);
+int countPixelsToPrint();
 
 int main(int argc, char *argv[]) {
     
@@ -158,7 +159,6 @@ int main(int argc, char *argv[]) {
         if(CLK == *next_irq2) { 
             IOregisters[5] = 1;  // turn on irqstatus2
             next_irq2 += 1; // load next irq2 cycle
-            printf("irq2 made at clk %d\n", CLK);
         } else {
             IOregisters[5] = 0; // reset irq2 if needed
         }
@@ -201,13 +201,21 @@ int main(int argc, char *argv[]) {
     }
 
     //monitors
-    for (int i = 0; i < 256; i++) {
+    int last_line = countPixelsToPrint() / 256;
+    int last_pixel = countPixelsToPrint() % 256;
+    for (int i = 0; i < last_line; i++) {
         for (int j = 0; j < 256; j++) {
             fprintf(monitor_txt, "%02X\n", monitor[i][j]);
-            fprintf(monitor_yuv, "%02X\n", monitor[i][j]);
         }
     }
-
+    for (int j = 0; j < last_pixel; j++) {
+        fprintf(monitor_txt, "%02X\n", monitor[last_line][j]);
+    }
+    for (int i = 0; i < 256; i++) {
+        for (int j = 0; j < 256; j++) {
+            fprintf(monitor_yuv, "%c", monitor[i][j]);
+        }
+    }
     return 0;
 }
 
@@ -468,4 +476,19 @@ int countLinesToPrint(long long int* array, int max_size) {
         non_zero_lines++;
     }
     return non_zero_lines;
+}
+
+int countPixelsToPrint() {  
+    long int sum = 0;
+    int max_pixel = 0;
+    for (int i = 0; i < 256; i++) {
+        for (int j = 0; j < 256; j++) {
+            sum += monitor[i][j];
+        }
+    }
+    while (sum != 0) {
+        sum -= monitor[max_pixel / 256][max_pixel % 256];
+        max_pixel++;
+    } 
+    return max_pixel;
 }
