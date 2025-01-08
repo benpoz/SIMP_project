@@ -7,12 +7,10 @@
 #define LINE_LENGTH 14          // Each line can hold 12 characters + 2 for newline
 #define DISK_SIZE 16384           // Number of bytes in the disk
 #define MAX_CYCLES (1024*4096)  // Maximum possible cycles needed to execute a program
-#define MONITOR_SIZE (256*256)
 
 // create program counter & clock
 unsigned int CLK = 0; 
 unsigned int PC = 0;
-
 
 // branch/jal & ISR indicators
 int branch = 0;
@@ -49,9 +47,7 @@ char IOregisters_names[23][12] = {
     "monitordata",
     "monitorcmd"
 };
-// disk operation counter
-int disk_timer = 0;
-int disk_timer_enable = 0;
+
 // define instruction structure
 struct instruction {
     int op_code;
@@ -63,6 +59,9 @@ struct instruction {
     int imm2;
 };
 
+// disk operation counter
+int disk_timer = 0;
+int disk_timer_enable = 0;
 
 // declare functions
 long long int hexToNum(char number[], int bits); // should be signed or unsigned?
@@ -131,8 +130,6 @@ int main(int argc, char *argv[]) {
         struct instruction *current_instruction = malloc(sizeof(struct instruction));
         decode_instruction(instruction_memory[PC], current_instruction);
         setImmediates(current_instruction);
-        //printf("imm1 is: %d\n", current_instruction->imm1);
-        //printf("imm2 is: %d\n", current_instruction->imm2);
         free(current_instruction);
         
         //add line to trace file  
@@ -162,23 +159,24 @@ int main(int argc, char *argv[]) {
         } else {
             IOregisters[5] = 0; // reset irq2 if needed
         }
+        
         //increment timers 
         //!before or after execution?
         if (disk_timer_enable) {disk_timer++;} 
         if (IOregisters[11]) {IOregisters[12]++;}
         
         //finish 
-        if (halt) {
-            fprintf(cycles, "%d", CLK); //write cycle number to file
-            CLK++;
-            printf("Halted after %d cycles\n", CLK);
-            break;
-        }
         if (!branch) {
             PC++; // don't increment PC when branching/jaling
         }
         branch = 0;
         CLK++;
+        
+        if (halt) {
+            fprintf(cycles, "%d", CLK); //write cycle number to file
+            printf("Halted after %d cycles\n", CLK);
+            break;
+        }
     }
     
     //write to end-of-run output files: 
