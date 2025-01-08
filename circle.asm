@@ -11,7 +11,8 @@
 #sll $sp, $imm1, $imm2, $zero, 1, 11  # Set $sp=1<<11=2048
 #out $zero, $imm1, $zero, $imm2, 6, irq_handler
 ######
-
+#set radius values
+.word 0x100 1
 # Load radius
 lw $a0, $zero, 0x100,0,0  # Load radius
 
@@ -66,10 +67,10 @@ skip_update_x:
 
     beq $zero, $zero, $zero, $imm1, draw_circle, 0  # Loop to draw_circle
 end_draw:
-halt $zero, $zero, $zero, $zero, 0, 0
+    halt $zero, $zero, $zero, $zero, 0, 0
 
 #####
-irq_handler:
+#irq_handler:
     # Handle interrupts
     #in $t1, $zero, $imm2, $zero, 0, 3  # Read irq0status
     #in $t2, $zero, $imm2, $zero, 0, 4  # Read irq1status
